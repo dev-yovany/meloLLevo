@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>meloLLevo</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>🛍️ meloLLevo</h1>
+    <button id="cart-button" class="cart-button" aria-label="Abrir carrito">
+      🛒 <span id="cart-count">0</span>
+    </button>
+  </header>
+
+  <main>
+    <section id="product-list" class="product-grid"></section>
+  </main>
+
+  <div id="cart-panel" class="cart-panel hidden">
+    <div class="cart-header">
+      <h2>Tu carrito</h2>
+      <button id="cart-close" class="close-btn">✕</button>
+    </div>
+    <div id="cart-items" class="cart-items"></div>
+    <div class="cart-footer">
+      <p>Total: <strong id="cart-total">$0</strong></p>
+      <button id="checkout-button" class="primary-btn">Realizar pedido</button>
+    </div>
+  </div>
+
+  <div id="checkout-modal" class="modal hidden">
+    <div class="modal-content">
+      <div class="cart-header">
+        <h2>Datos del pedido</h2>
+        <button id="checkout-close" class="close-btn">✕</button>
+      </div>
+      <form id="checkout-form">
+        <label>Nombre del cliente
+          <input type="text" name="clientName" required />
+        </label>
+        <label>Teléfono / contacto
+          <input type="text" name="contact" required />
+        </label>
+        <label>Fecha de entrega
+          <input type="date" name="date" required />
+        </label>
+        <label>Hora de entrega
+          <input type="time" name="time" required />
+        </label>
+        <label>Lugar / dirección
+          <input type="text" name="place" required />
+        </label>
+        <button type="submit" class="primary-btn">Enviar pedido</button>
+        <p id="checkout-status" class="status-msg"></p>
+      </form>
+    </div>
+  </div>
+
+  <div id="overlay" class="overlay hidden"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
