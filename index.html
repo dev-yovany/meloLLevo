@@ -4,13 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#c53030" />
-  <title>meloLLevo</title>
+  <title>MegaMerca</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <header class="appbar">
     <div class="appbar-inner">
-      <span class="brand">meloLLevo</span>
+      <span class="brand">MegaMerca</span>
     </div>
   </header>
 
@@ -22,6 +22,10 @@
   <main id="view-cart" class="view hidden">
     <div class="section-title">Tu carrito</div>
     <div id="cart-items" class="cart-items"></div>
+    <div class="admin-sync">
+      <button id="sync-btn" class="sync-btn" title="Sincronizar productos a la BD">↻ Sync productos</button>
+      <span id="sync-status" class="sync-status"></span>
+    </div>
   </main>
 
   <nav class="bottomnav">

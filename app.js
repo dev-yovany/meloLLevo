@@ -290,5 +290,29 @@ document.querySelectorAll(".nav-btn").forEach((b) =>
   b.addEventListener("click", () => showView(b.dataset.view))
 );
 
+el("sync-btn").addEventListener("click", async () => {
+  const status = el("sync-status");
+  const btn = el("sync-btn");
+  btn.disabled = true;
+  status.className = "sync-status";
+  status.textContent = "Sincronizando...";
+  try {
+    const res = await fetch(BACKEND_URL + "/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Error");
+    status.className = "sync-status ok";
+    status.textContent = `✓ ${json.synced} productos sincronizados`;
+  } catch (err) {
+    status.className = "sync-status err";
+    status.textContent = "✗ Error: " + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 loadData();
 updateCartUI();
