@@ -277,7 +277,7 @@ async function submitOrder(e) {
     setTimeout(closeCheckout, 2000);
   } catch (err) {
     status.className = "status-msg err";
-    status.textContent = "❌ No se pudo enviar. Revisa tu conexión o el backend.";
+    status.textContent = "❌ Error: " + err.message;
   } finally {
     btn.disabled = false;
   }
