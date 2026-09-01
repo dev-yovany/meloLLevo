@@ -264,7 +264,7 @@ async function submitOrder(e) {
   status.className = "status-msg";
   status.textContent = "Enviando pedido...";
   try {
-    const res = await fetch(BACKEND_URL, {
+    const res = await fetch(BACKEND_URL + "/orders", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(order),
