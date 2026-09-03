@@ -11,21 +11,50 @@
   <header class="appbar">
     <div class="appbar-inner">
       <span class="brand">MegaMerca</span>
+      <div class="search-box">
+        <svg class="search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
+        <input type="text" id="search-input" class="search-input" placeholder="Buscar Producto..." autocomplete="off" />
+      </div>
+      <button id="profile-btn" class="icon-btn" aria-label="Perfil">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </button>
+    </div>
+    <div id="home-tabs" class="home-tabs">
+      <button class="home-tab active" data-tab="businesses">Negocios</button>
+      <button class="home-tab" data-tab="products">Productos</button>
     </div>
   </header>
 
   <main id="view-home" class="view">
-    <div id="category-bar" class="category-bar"></div>
-    <div id="product-list" class="product-grid"></div>
+    <div id="tab-businesses" class="tab-content">
+      <div id="business-list" class="business-grid"></div>
+    </div>
+    <div id="tab-products" class="tab-content hidden">
+      <div id="category-bar" class="category-bar"></div>
+      <div id="product-list" class="product-grid"></div>
+      <button id="back-to-top" class="back-to-top">Volver arriba ↑</button>
+    </div>
+    <div id="business-detail" class="business-detail hidden">
+      <div class="business-detail-head">
+        <button id="business-back" class="icon-btn">←</button>
+        <div class="business-detail-info">
+          <div id="business-detail-name" class="business-detail-name"></div>
+          <div id="business-detail-cat" class="business-detail-cat"></div>
+        </div>
+      </div>
+      <div id="business-category-bar" class="category-bar"></div>
+      <div id="business-products" class="product-grid"></div>
+      <button id="biz-back-to-top" class="back-to-top">Volver arriba ↑</button>
+      <div class="recommended-section">
+        <div class="section-title">Negocios recomendados</div>
+        <div id="recommended-list" class="business-grid business-grid-small"></div>
+      </div>
+    </div>
   </main>
 
   <main id="view-cart" class="view hidden">
     <div class="section-title">Tu carrito</div>
     <div id="cart-items" class="cart-items"></div>
-    <div class="admin-sync">
-      <button id="sync-btn" class="sync-btn" title="Sincronizar productos a la BD">↻ Sync productos</button>
-      <span id="sync-status" class="sync-status"></span>
-    </div>
   </main>
 
   <nav class="bottomnav">
@@ -66,6 +95,31 @@
       <p id="checkout-status" class="status-msg"></p>
     </form>
   </div>
+
+  <main id="view-profile" class="view hidden">
+    <div class="profile-tabs">
+      <button class="profile-tab active" data-tab="info">Perfil</button>
+      <button class="profile-tab" data-tab="history">Historial</button>
+    </div>
+    <div id="tab-info" class="tab-content">
+      <form id="profile-form" class="profile-form">
+        <label>Nombre
+          <input type="text" name="profileName" required autocomplete="name" />
+        </label>
+        <label>Teléfono / contacto
+          <input type="text" name="profileContact" required autocomplete="tel" />
+        </label>
+        <label>Dirección
+          <input type="text" name="profilePlace" required />
+        </label>
+        <button type="submit" class="primary-btn">Guardar</button>
+        <p id="profile-status" class="status-msg"></p>
+      </form>
+    </div>
+    <div id="tab-history" class="tab-content hidden">
+      <div id="history-list" class="history-list"></div>
+    </div>
+  </main>
 
   <div id="overlay" class="overlay"></div>
 

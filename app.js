@@ -32,8 +32,108 @@ async function loadData() {
   } catch (e) {
     data = { categories: [], businesses: [], products: [] };
   }
+  renderBusinesses();
   renderCategories();
   renderProducts();
+}
+
+function renderBusinesses() {
+  const list = el("business-list");
+  list.innerHTML = "";
+  data.businesses.forEach((b) => {
+    const card = document.createElement("div");
+    card.className = "business-card";
+    const initial = b.name.charAt(0).toUpperCase();
+    card.innerHTML = `
+      <div class="business-avatar" style="background:${bizGradient(b.id)}">${initial}</div>
+      <div class="business-card-name">${b.name}</div>
+      <div class="business-card-cat">${b.category || ""}</div>`;
+    card.addEventListener("click", () => openBusiness(b));
+    list.appendChild(card);
+  });
+}
+
+function openBusiness(business) {
+  el("home-tabs").classList.add("hidden");
+  el("tab-businesses").classList.add("hidden");
+  el("tab-products").classList.add("hidden");
+  el("business-detail").classList.remove("hidden");
+  el("business-detail-name").textContent = business.name;
+  el("business-detail-cat").textContent = business.category || "";
+  const prods = data.products.filter((p) => p.businessId === business.id);
+  const cats = ["Todos", ...new Set(prods.map((p) => p.category))];
+  const bar = el("business-category-bar");
+  bar.innerHTML = "";
+  let activeBizCat = "Todos";
+  function renderBizProducts() {
+    const grid = el("business-products");
+    grid.innerHTML = "";
+    const filtered = activeBizCat === "Todos" ? prods : prods.filter((p) => p.category === activeBizCat);
+    filtered.forEach((p) => grid.appendChild(createProductCard(p)));
+  }
+  cats.forEach((cat) => {
+    const btn = document.createElement("button");
+    btn.className = "cat-pill" + (cat === "Todos" ? " active" : "");
+    btn.textContent = cat;
+    btn.addEventListener("click", () => {
+      activeBizCat = cat;
+      bar.querySelectorAll(".cat-pill").forEach((p) =>
+        p.classList.toggle("active", p.textContent === cat)
+      );
+      renderBizProducts();
+    });
+    bar.appendChild(btn);
+  });
+  renderBizProducts();
+  const rec = el("recommended-list");
+  rec.innerHTML = "";
+  const others = data.businesses.filter((b) => b.id !== business.id);
+  const shuffled = others.sort(() => Math.random() - 0.5).slice(0, 6);
+  shuffled.forEach((b) => {
+    const card = document.createElement("div");
+    card.className = "business-card";
+    const initial = b.name.charAt(0).toUpperCase();
+    card.innerHTML = `
+      <div class="business-avatar" style="background:${bizGradient(b.id)}">${initial}</div>
+      <div class="business-card-name">${b.name}</div>
+      <div class="business-card-cat">${b.category || ""}</div>`;
+    card.addEventListener("click", () => openBusiness(b));
+    rec.appendChild(card);
+  });
+  window.scrollTo(0, 0);
+}
+
+function closeBusiness() {
+  el("home-tabs").classList.remove("hidden");
+  const active = document.querySelector(".home-tab.active").dataset.tab;
+  el("tab-businesses").classList.toggle("hidden", active !== "businesses");
+  el("tab-products").classList.toggle("hidden", active !== "products");
+  el("business-detail").classList.add("hidden");
+  window.scrollTo(0, 0);
+}
+
+function createProductCard(p) {
+  const card = document.createElement("div");
+  card.className = "product-card";
+  const media = p.image
+    ? `<img src="${p.image}" alt="${p.name}" />`
+    : `<div class="ph" style="background:${bizGradient(p.businessId)}">${bizName(p.businessId).charAt(0)}</div>`;
+  card.innerHTML = `
+    <div class="product-media">
+      ${media}
+      <button class="add-float" data-id="${p.id}"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+    </div>
+    <div class="product-body">
+      <div class="product-name">${p.name}</div>
+      <div class="product-biz">${bizName(p.businessId)}</div>
+      <div class="product-price">${currency.format(p.price)}</div>
+    </div>`;
+  card.querySelector(".add-float").addEventListener("click", (e) => {
+    e.stopPropagation();
+    addToCart(p.id);
+    flashAdd(card.querySelector(".add-float"));
+  });
+  return card;
 }
 
 function renderCategories() {
@@ -61,30 +161,7 @@ function renderProducts() {
     activeCategory === "Todos"
       ? data.products
       : data.products.filter((p) => p.category === activeCategory);
-
-  filtered.forEach((p) => {
-    const card = document.createElement("div");
-    card.className = "product-card";
-    const media = p.image
-      ? `<img src="${p.image}" alt="${p.name}" />`
-      : `<div class="ph" style="background:${bizGradient(p.businessId)}">${bizName(p.businessId).charAt(0)}</div>`;
-    card.innerHTML = `
-      <div class="product-media">
-        ${media}
-        <button class="add-float" data-id="${p.id}"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
-      </div>
-      <div class="product-body">
-        <div class="product-name">${p.name}</div>
-        <div class="product-biz">${bizName(p.businessId)}</div>
-        <div class="product-price">${currency.format(p.price)}</div>
-      </div>`;
-    card.querySelector(".add-float").addEventListener("click", (e) => {
-      e.stopPropagation();
-      addToCart(p.id);
-      flashAdd(card.querySelector(".add-float"));
-    });
-    list.appendChild(card);
-  });
+  filtered.forEach((p) => list.appendChild(createProductCard(p)));
 }
 
 function flashAdd(btn) {
@@ -138,13 +215,21 @@ function flashAdd(btn) {
 }
 
 function showView(v) {
-  ["home", "cart"].forEach((x) =>
+  ["home", "cart", "profile"].forEach((x) =>
     el("view-" + x).classList.toggle("hidden", x !== v)
   );
   document.querySelectorAll(".nav-btn").forEach((b) =>
     b.classList.toggle("active", b.dataset.view === v)
   );
+  el("home-tabs").classList.toggle("hidden", v !== "home");
+  if (v === "home") {
+    el("business-detail").classList.add("hidden");
+    const active = document.querySelector(".home-tab.active").dataset.tab;
+    el("tab-businesses").classList.toggle("hidden", active !== "businesses");
+    el("tab-products").classList.toggle("hidden", active !== "products");
+  }
   if (v === "cart") renderCart();
+  if (v === "profile") loadProfileView();
   window.scrollTo(0, 0);
 }
 
@@ -217,6 +302,7 @@ function renderCart() {
 
 function openCheckout() {
   if (cart.size === 0) return;
+  fillCheckoutFromProfile();
   el("checkout-modal").classList.add("open");
   el("overlay").classList.add("open");
 }
@@ -290,29 +376,120 @@ document.querySelectorAll(".nav-btn").forEach((b) =>
   b.addEventListener("click", () => showView(b.dataset.view))
 );
 
-el("sync-btn").addEventListener("click", async () => {
-  const status = el("sync-status");
-  const btn = el("sync-btn");
-  btn.disabled = true;
-  status.className = "sync-status";
-  status.textContent = "Sincronizando...";
-  try {
-    const res = await fetch(BACKEND_URL + "/sync", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.error || "Error");
-    status.className = "sync-status ok";
-    status.textContent = `✓ ${json.synced} productos sincronizados`;
-  } catch (err) {
-    status.className = "sync-status err";
-    status.textContent = "✗ Error: " + err.message;
-  } finally {
-    btn.disabled = false;
-  }
+document.querySelectorAll(".home-tab").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".home-tab").forEach((t) => t.classList.remove("active"));
+    tab.classList.add("active");
+    const target = tab.dataset.tab;
+    el("tab-businesses").classList.toggle("hidden", target !== "businesses");
+    el("tab-products").classList.toggle("hidden", target !== "products");
+    el("business-detail").classList.add("hidden");
+  });
 });
+function removeDiacritics(s) {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "").toLowerCase();
+}
+
+function filterProducts(query) {
+  const q = removeDiacritics(query);
+  if (!q) { renderProducts(); return; }
+  const list = el("product-list");
+  list.innerHTML = "";
+  const filtered = data.products.filter((p) =>
+    removeDiacritics(p.name).includes(q) ||
+    removeDiacritics(bizName(p.businessId)).includes(q)
+  );
+  if (!filtered.length) { list.innerHTML = '<p class="empty">No se encontraron productos.</p>'; return; }
+  filtered.forEach((p) => list.appendChild(createProductCard(p)));
+}
+
+el("search-input").addEventListener("input", (e) => {
+  const q = e.target.value.trim();
+  const currentView = document.querySelector(".view:not(.hidden)");
+  if (currentView && currentView.id !== "view-home") showView("home");
+  document.querySelectorAll(".home-tab").forEach((t) => t.classList.remove("active"));
+  document.querySelector('[data-tab="products"]').classList.add("active");
+  el("tab-businesses").classList.add("hidden");
+  el("tab-products").classList.remove("hidden");
+  el("business-detail").classList.add("hidden");
+  el("home-tabs").classList.remove("hidden");
+  filterProducts(q);
+});
+
+el("business-back").addEventListener("click", closeBusiness);
+el("back-to-top").addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+el("biz-back-to-top").addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+
 
 loadData();
 updateCartUI();
+
+function getProfile() {
+  try { return JSON.parse(localStorage.getItem("mm_profile") || "{}"); } catch { return {}; }
+}
+function saveProfile(d) { localStorage.setItem("mm_profile", JSON.stringify(d)); }
+function loadProfileView() {
+  const p = getProfile();
+  el("profile-form").profileName.value = p.name || "";
+  el("profile-form").profileContact.value = p.contact || "";
+  el("profile-form").profilePlace.value = p.place || "";
+  el("profile-status").textContent = "";
+  document.querySelectorAll(".profile-tab").forEach((t) => t.classList.remove("active"));
+  document.querySelector('[data-tab="info"]').classList.add("active");
+  el("tab-info").classList.remove("hidden");
+  el("tab-history").classList.add("hidden");
+}
+function fillCheckoutFromProfile() {
+  const p = getProfile();
+  if (p.name) el("checkout-form").clientName.value = p.name;
+  if (p.contact) el("checkout-form").contact.value = p.contact;
+  if (p.place) el("checkout-form").place.value = p.place;
+}
+async function loadHistory() {
+  const p = getProfile();
+  const box = el("history-list");
+  if (!p.contact) { box.innerHTML = '<p class="empty">Guarda tu teléfono en el perfil primero.</p>'; return; }
+  box.innerHTML = '<p class="empty">Cargando...</p>';
+  try {
+    const res = await fetch(BACKEND_URL + "/pedidos?telefono=" + encodeURIComponent(p.contact));
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    if (!data.length) { box.innerHTML = '<p class="empty">No hay compras registradas.</p>'; return; }
+    const orders = {};
+    data.forEach((v) => {
+      const key = v.created_at;
+      if (!orders[key]) orders[key] = { fecha: v.fecha, hora: v.hora, items: [], total: v.total };
+      orders[key].items.push(v);
+    });
+    box.innerHTML = Object.values(orders).map((o) => `
+      <div class="history-card">
+        <div class="history-date">${o.fecha} ${o.hora ? "a las " + o.hora : ""}</div>
+        <div class="history-items">${o.items.map((i) => `${i.cantidad}× ${i.producto} — ${formatPrice(i.subtotal)}`).join("<br>")}</div>
+        <div class="history-total">Total: ${formatPrice(o.total)}</div>
+      </div>
+    `).join("");
+  } catch (err) {
+    box.innerHTML = '<p class="empty">Error: ' + err.message + "</p>";
+  }
+}
+
+el("profile-btn").addEventListener("click", () => showView("profile"));
+document.querySelectorAll(".profile-tab").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".profile-tab").forEach((t) => t.classList.remove("active"));
+    tab.classList.add("active");
+    const target = tab.dataset.tab;
+    el("tab-info").classList.toggle("hidden", target !== "info");
+    el("tab-history").classList.toggle("hidden", target !== "history");
+    if (target === "history") loadHistory();
+  });
+});
+el("profile-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const f = e.target;
+  saveProfile({ name: f.profileName.value, contact: f.profileContact.value, place: f.profilePlace.value });
+  const s = el("profile-status");
+  s.className = "status-msg ok";
+  s.textContent = "✓ Perfil guardado";
+  setTimeout(() => showView("home"), 800);
+});
