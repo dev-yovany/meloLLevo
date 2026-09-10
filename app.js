@@ -1,28 +1,81 @@
 const BACKEND_URL = "https://melollevo-backend.dev-yovany.workers.dev";
 
-const currency = new Intl.NumberFormat("es-CO", {
-  style: "currency",
-  currency: "COP",
-  maximumFractionDigits: 0,
-});
+const currency = {
+  format: (v) =>
+    new Intl.NumberFormat("es-CO", { maximumFractionDigits: 0 }).format(v) + " $",
+};
 
 let data = { categories: [], businesses: [], products: [] };
 let activeCategory = "Todos";
 const cart = new Map();
 const el = (id) => document.getElementById(id);
 
-function hue(str) {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) h = str.charCodeAt(i) + ((h << 5) - h);
-  return Math.abs(h) % 360;
-}
 function bizGradient(id) {
-  const h = hue(id);
-  return `linear-gradient(135deg, hsl(${h},75%,58%), hsl(${h},75%,42%))`;
+  return "linear-gradient(135deg, #6cbf66, #5DB355)";
+}
+function productGradient(id) {
+  return "linear-gradient(135deg, #d87676, #CE4E4D)";
 }
 function bizName(businessId) {
   const b = data.businesses.find((x) => x.id === businessId);
   return b ? b.name : "";
+}
+function getBusiness(id) {
+  return data.businesses.find((x) => x.id === id);
+}
+
+const DAYS = ["dom", "lun", "mar", "mie", "jue", "vie", "sab"];
+
+function dayInRange(days, d) {
+  const ds = days.split("-");
+  const start = DAYS.indexOf(ds[0]);
+  const end = ds.length > 1 ? DAYS.indexOf(ds[1]) : start;
+  if (end >= start) return d >= start && d <= end;
+  return d >= start || d <= end;
+}
+
+function businessStatus(b) {
+  if (!b || !b.schedule || !b.schedule.length) return { open: true, label: "Abierto" };
+  const d = new Date().getDay();
+  const mins = new Date().getHours() * 60 + new Date().getMinutes();
+  for (const rule of b.schedule) {
+    if (!dayInRange(rule[0], d)) continue;
+    const [oh, om] = rule[1].split(":").map(Number);
+    const [ch, cm] = rule[2].split(":").map(Number);
+    const open = oh * 60 + om;
+    const close = ch * 60 + cm;
+    if (close > open) {
+      if (mins >= open && mins < close) return { open: true, label: "Abierto" };
+    } else {
+      if (mins >= open || mins < close) return { open: true, label: "Abierto" };
+    }
+  }
+  return { open: false, label: "Cerrado" };
+}
+
+function todayHoursLine(b) {
+  if (!b || !b.schedule || !b.schedule.length) return "Disponible todos los días";
+  const d = new Date().getDay();
+  for (const rule of b.schedule) {
+    if (dayInRange(rule[0], d)) return `Hoy: ${rule[1]} a ${rule[2]}`;
+  }
+  return "Cerrado hoy";
+}
+
+function statusInline(b) {
+  const st = businessStatus(b);
+  return `<span class="biz-status-line"><span class="open-dot ${st.open ? "on" : "off"}" data-bid="${b.id}"></span><span class="status-label">${st.label}</span></span>`;
+}
+
+function statusPill(b) {
+  const st = businessStatus(b);
+  return `<span class="biz-status ${st.open ? "on" : "off"}" data-bid="${b.id}"><span class="open-dot"></span><span class="status-label">${st.label}</span></span>`;
+}
+
+function productBizLine(p) {
+  const b = getBusiness(p.businessId);
+  const st = businessStatus(b);
+  return `<span class="open-dot ${st.open ? "on" : "off"}" data-bid="${p.businessId}"></span><span class="status-label">${st.label}</span><span class="biz-name">${b ? b.name : ""}</span>`;
 }
 
 async function loadData() {
@@ -35,6 +88,69 @@ async function loadData() {
   renderBusinesses();
   renderCategories();
   renderProducts();
+  renderFeatured();
+}
+
+function updateStatuses() {
+  document.querySelectorAll(".biz-status, .open-dot").forEach((n) => {
+    const b = getBusiness(n.dataset.bid);
+    const st = businessStatus(b);
+    n.classList.toggle("on", st.open);
+    n.classList.toggle("off", !st.open);
+    const lab = n.querySelector(".status-label");
+    if (lab) lab.textContent = st.label;
+  });
+}
+setInterval(updateStatuses, 60000);
+
+function featuredCard(p) {
+  const card = document.createElement("div");
+  card.className = "featured-card";
+  card.innerHTML = `
+    <div class="fc-media"><img src="${p.image}" alt="${p.name}" loading="lazy" /></div>
+    <div class="fc-body">
+      <div class="featured-name">${p.name}</div>
+      <div class="featured-biz">${bizName(p.businessId)}</div>
+      <div class="featured-price">${currency.format(p.price)}</div>
+    </div>`;
+  card.addEventListener("click", () => goToProduct(p.id));
+  return card;
+}
+
+function renderFeatured() {
+  const featured = data.products.filter((p) => p.price >= 12000).slice(0, 6);
+  const track = el("featured-track");
+  const dotsBox = el("featured-dots");
+  track.innerHTML = "";
+  dotsBox.innerHTML = featured.map((_, i) => `<span class="dot${i === 0 ? " active" : ""}"></span>`).join("");
+  const dots = [...dotsBox.children];
+  [...featured, ...featured.slice(0, 2)].forEach((p) => track.appendChild(featuredCard(p)));
+  let idx = 0;
+  const step = () => {
+    const c = track.querySelector(".featured-card");
+    return c ? c.getBoundingClientRect().width + parseFloat(getComputedStyle(track).columnGap) : 0;
+  };
+  const move = () => {
+    track.style.transform = `translateX(${-idx * step()}px)`;
+    dots.forEach((d, i) => d.classList.toggle("active", i === idx % featured.length));
+  };
+  setInterval(() => {
+    idx++;
+    if (idx > featured.length) {
+      idx = 1;
+      track.style.transition = "none";
+      void track.offsetWidth;
+    }
+    track.style.transition = "transform .55s cubic-bezier(.4, 0, .2, 1)";
+    move();
+  }, 4000);
+  move();
+}
+
+function businessAvatar(b) {
+  const initial = b.name.charAt(0).toUpperCase();
+  if (b.image) return `<img src="${b.image}" alt="${b.name}" class="biz-photo">`;
+  return `<div class="business-avatar" style="background:${bizGradient(b.id)}">${initial}</div>`;
 }
 
 function renderBusinesses() {
@@ -43,11 +159,12 @@ function renderBusinesses() {
   data.businesses.forEach((b) => {
     const card = document.createElement("div");
     card.className = "business-card";
-    const initial = b.name.charAt(0).toUpperCase();
     card.innerHTML = `
-      <div class="business-avatar" style="background:${bizGradient(b.id)}">${initial}</div>
+      ${businessAvatar(b)}
       <div class="business-card-name">${b.name}</div>
-      <div class="business-card-cat">${b.category || ""}</div>`;
+      <div class="business-card-status">${statusInline(b)}</div>
+      <div class="business-card-cat">${b.category || ""}</div>
+      <div class="business-card-desc">${b.description || ""}</div>`;
     card.addEventListener("click", () => openBusiness(b));
     list.appendChild(card);
   });
@@ -60,6 +177,7 @@ function openBusiness(business) {
   el("business-detail").classList.remove("hidden");
   el("business-detail-name").textContent = business.name;
   el("business-detail-cat").textContent = business.category || "";
+  el("business-detail-status").innerHTML = statusPill(business) + ' <span class="biz-hours">' + todayHoursLine(business) + "</span>";
   const prods = data.products.filter((p) => p.businessId === business.id);
   const cats = ["Todos", ...new Set(prods.map((p) => p.category))];
   const bar = el("business-category-bar");
@@ -92,11 +210,12 @@ function openBusiness(business) {
   shuffled.forEach((b) => {
     const card = document.createElement("div");
     card.className = "business-card";
-    const initial = b.name.charAt(0).toUpperCase();
     card.innerHTML = `
-      <div class="business-avatar" style="background:${bizGradient(b.id)}">${initial}</div>
+      ${businessAvatar(b)}
       <div class="business-card-name">${b.name}</div>
-      <div class="business-card-cat">${b.category || ""}</div>`;
+      <div class="business-card-status">${statusInline(b)}</div>
+      <div class="business-card-cat">${b.category || ""}</div>
+      <div class="business-card-desc">${b.description || ""}</div>`;
     card.addEventListener("click", () => openBusiness(b));
     rec.appendChild(card);
   });
@@ -115,9 +234,10 @@ function closeBusiness() {
 function createProductCard(p) {
   const card = document.createElement("div");
   card.className = "product-card";
+  card.dataset.id = String(p.id);
   const media = p.image
     ? `<img src="${p.image}" alt="${p.name}" />`
-    : `<div class="ph" style="background:${bizGradient(p.businessId)}">${bizName(p.businessId).charAt(0)}</div>`;
+    : `<div class="ph" style="background:${productGradient(p.businessId)}">${bizName(p.businessId).charAt(0)}</div>`;
   card.innerHTML = `
     <div class="product-media">
       ${media}
@@ -125,7 +245,7 @@ function createProductCard(p) {
     </div>
     <div class="product-body">
       <div class="product-name">${p.name}</div>
-      <div class="product-biz">${bizName(p.businessId)}</div>
+      <div class="product-biz">${productBizLine(p)}</div>
       <div class="product-price">${currency.format(p.price)}</div>
     </div>`;
   card.querySelector(".add-float").addEventListener("click", (e) => {
@@ -168,7 +288,7 @@ function flashAdd(btn) {
   const r = btn.getBoundingClientRect();
   const cartBtn = document.querySelector('[data-view="cart"]');
   const cr = cartBtn.getBoundingClientRect();
-  const colors = ["#d44040", "#c53030", "#e55555", "#a52828", "#f06060", "#cc3333"];
+  const colors = ["#CE4E4D", "#d87676", "#e8928f", "#a83a39", "#5DB355"];
   const startX = r.left + r.width / 2;
   const startY = r.top + r.height / 2;
   const endX = cr.left + cr.width / 2;
@@ -214,7 +334,22 @@ function flashAdd(btn) {
   setTimeout(() => { btn.style.transform = ""; }, 150);
 }
 
+function bounceNav(v) {
+  const btn = [...document.querySelectorAll(".nav-btn")].find(
+    (b) => b.dataset.view === v && b.offsetParent !== null
+  );
+  if (!btn) return;
+  const svg = btn.querySelector("svg");
+  svg.classList.remove("bounce");
+  void svg.offsetWidth;
+  svg.classList.add("bounce");
+}
+
+let currentView = "home";
 function showView(v) {
+  const wasHome = currentView === "home";
+  const scrollRef = heroRef();
+  currentView = v;
   ["home", "cart", "profile"].forEach((x) =>
     el("view-" + x).classList.toggle("hidden", x !== v)
   );
@@ -223,14 +358,17 @@ function showView(v) {
   );
   el("home-tabs").classList.toggle("hidden", v !== "home");
   if (v === "home") {
-    el("business-detail").classList.add("hidden");
     const active = document.querySelector(".home-tab.active").dataset.tab;
     el("tab-businesses").classList.toggle("hidden", active !== "businesses");
     el("tab-products").classList.toggle("hidden", active !== "products");
+    el("business-detail").classList.add("hidden");
   }
+  bounceNav(v);
   if (v === "cart") renderCart();
   if (v === "profile") loadProfileView();
-  window.scrollTo(0, 0);
+  if (v === "home" && !wasHome && window.scrollY < scrollRef * 0.35)
+    revealHomeHero();
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function addToCart(id) {
@@ -250,13 +388,14 @@ function changeQty(id, delta) {
 function updateCartUI() {
   let count = 0;
   cart.forEach((q) => (count += q));
-  const badge = el("cart-badge");
-  if (count > 0) {
-    badge.textContent = count;
-    badge.classList.remove("hidden");
-  } else {
-    badge.classList.add("hidden");
-  }
+  document.querySelectorAll(".cart-badge").forEach((badge) => {
+    if (count > 0) {
+      badge.textContent = count;
+      badge.classList.remove("hidden");
+    } else {
+      badge.classList.add("hidden");
+    }
+  });
 }
 
 function renderCart() {
@@ -375,19 +514,78 @@ el("checkout-form").addEventListener("submit", submitOrder);
 document.querySelectorAll(".nav-btn").forEach((b) =>
   b.addEventListener("click", () => showView(b.dataset.view))
 );
+document.querySelectorAll(".nav-btn svg").forEach((svg) =>
+  svg.addEventListener("animationend", () => svg.classList.remove("bounce"))
+);
+
+function setHomeTab(tab) {
+  document.querySelectorAll(".home-tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === tab));
+  const ind = el("home-tab-indicator");
+  ind.style.left = tab === "businesses" ? "calc(var(--u) / 4)" : "calc(var(--u) * 6.75)";
+  ind.style.backgroundColor = tab === "businesses" ? "#5DB355" : "#CE4E4D";
+}
 
 document.querySelectorAll(".home-tab").forEach((tab) => {
   tab.addEventListener("click", () => {
-    document.querySelectorAll(".home-tab").forEach((t) => t.classList.remove("active"));
-    tab.classList.add("active");
-    const target = tab.dataset.tab;
-    el("tab-businesses").classList.toggle("hidden", target !== "businesses");
-    el("tab-products").classList.toggle("hidden", target !== "products");
-    el("business-detail").classList.add("hidden");
+    setHomeTab(tab.dataset.tab);
+    switchTabs(tab.dataset.tab);
   });
 });
+
+function switchTabs(target) {
+  const showId = target === "businesses" ? "tab-businesses" : "tab-products";
+  const hideId = target === "businesses" ? "tab-products" : "tab-businesses";
+  const hideBox = el(hideId);
+  const showBox = el(showId);
+  const toProducts = target === "products";
+  el("business-detail").classList.add("hidden");
+  const animateIn = () => {
+    showBox.classList.remove("hidden");
+    showBox.classList.remove("tab-enter-left", "tab-enter-right");
+    void showBox.offsetWidth;
+    showBox.classList.add(toProducts ? "tab-enter-right" : "tab-enter-left");
+  };
+  if (hideBox.classList.contains("hidden")) {
+    animateIn();
+    return;
+  }
+  hideBox.classList.add(toProducts ? "tab-leave-left" : "tab-leave-right");
+  setTimeout(() => {
+    hideBox.classList.remove("tab-leave-left", "tab-leave-right");
+    hideBox.classList.add("hidden");
+    animateIn();
+  }, 300);
+}
 function removeDiacritics(s) {
   return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "").toLowerCase();
+}
+
+function goToProduct(id) {
+  const p = data.products.find((x) => String(x.id) === String(id));
+  if (!p) return;
+  const wasHidden = el("view-home").classList.contains("hidden");
+  if (wasHidden) showView("home");
+  setHomeTab("products");
+  el("tab-businesses").classList.add("hidden");
+  el("tab-products").classList.remove("hidden");
+  el("business-detail").classList.add("hidden");
+  el("home-tabs").classList.remove("hidden");
+  el("search-input").value = "";
+  activeCategory = p.category;
+  document.querySelectorAll("#category-bar .cat-pill").forEach((pill) =>
+    pill.classList.toggle("active", pill.textContent === p.category)
+  );
+  renderProducts();
+  const wait = wasHidden ? 620 : 90;
+  setTimeout(() => {
+    const target = [...document.querySelectorAll("#product-list .product-card")].find(
+      (c) => c.dataset.id === String(p.id)
+    );
+    if (!target) return;
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    target.classList.add("target-flash");
+    setTimeout(() => target.classList.remove("target-flash"), 1900);
+  }, wait);
 }
 
 function filterProducts(query) {
@@ -403,18 +601,20 @@ function filterProducts(query) {
   filtered.forEach((p) => list.appendChild(createProductCard(p)));
 }
 
-el("search-input").addEventListener("input", (e) => {
-  const q = e.target.value.trim();
-  const currentView = document.querySelector(".view:not(.hidden)");
-  if (currentView && currentView.id !== "view-home") showView("home");
-  document.querySelectorAll(".home-tab").forEach((t) => t.classList.remove("active"));
-  document.querySelector('[data-tab="products"]').classList.add("active");
-  el("tab-businesses").classList.add("hidden");
-  el("tab-products").classList.remove("hidden");
-  el("business-detail").classList.add("hidden");
-  el("home-tabs").classList.remove("hidden");
-  filterProducts(q);
-});
+document.querySelectorAll(".search-input").forEach((inp) =>
+  inp.addEventListener("input", (e) => {
+    const q = e.target.value.trim();
+    const currentView = document.querySelector(".view:not(.hidden)");
+    if (currentView && currentView.id !== "view-home") showView("home");
+    setHomeTab("products");
+    el("tab-businesses").classList.add("hidden");
+    el("tab-products").classList.remove("hidden");
+    el("business-detail").classList.add("hidden");
+    el("home-tabs").classList.remove("hidden");
+    document.querySelectorAll(".search-input").forEach((i) => { if (i !== inp) i.value = inp.value; });
+    filterProducts(q);
+  })
+);
 
 el("business-back").addEventListener("click", closeBusiness);
 el("back-to-top").addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
@@ -423,6 +623,65 @@ el("biz-back-to-top").addEventListener("click", () => window.scrollTo({ top: 0, 
 
 loadData();
 updateCartUI();
+
+let heroCollapsed = false;
+const heroes = () => document.querySelectorAll(".brand-hero:not(.always-mini)");
+const activePage = () => document.querySelector(".view:not(.hidden) .page");
+function heroRef() {
+  const pg = activePage();
+  if (!pg) return 0;
+  return parseFloat(getComputedStyle(pg).marginTop) || 0;
+}
+function setHeroCollapsed(next) {
+  if (heroCollapsed === next) return;
+  heroCollapsed = next;
+  if (next) {
+    heroes().forEach((h) => {
+      h.classList.remove("hero-construct");
+      h.classList.add("hero-collapsing");
+    });
+    setTimeout(() => heroes().forEach((h) => {
+      h.classList.remove("hero-collapsing");
+      h.classList.add("hero-collapsed");
+    }), 360);
+  } else {
+    heroes().forEach((h) => h.classList.add("hero-collapsing"));
+    setTimeout(() =>
+      heroes().forEach((h) => {
+        h.classList.remove("hero-collapsed", "hero-collapsing");
+        h.classList.add("hero-construct");
+        setTimeout(() => h.classList.remove("hero-construct"), 900);
+      }), 250);
+  }
+}
+
+function revealHomeHero() {
+  heroCollapsed = false;
+  heroes().forEach((h) => {
+    if (h.classList.contains("hero-collapsed")) {
+      h.classList.add("hero-collapsing");
+      setTimeout(() => {
+        h.classList.remove("hero-collapsed", "hero-collapsing");
+        h.classList.add("hero-construct");
+        setTimeout(() => h.classList.remove("hero-construct"), 900);
+      }, 250);
+    } else {
+      h.classList.remove("hero-collapsing", "hero-collapsed");
+      h.classList.add("hero-construct");
+      setTimeout(() => h.classList.remove("hero-construct"), 900);
+    }
+  });
+}
+window.addEventListener(
+  "scroll",
+  () => {
+    const ref = heroRef();
+    const y = window.scrollY;
+    if (!heroCollapsed && y >= ref * 0.85) setHeroCollapsed(true);
+    else if (heroCollapsed && y < ref * 0.35) setHeroCollapsed(false);
+  },
+  { passive: true }
+);
 
 function getProfile() {
   try { return JSON.parse(localStorage.getItem("mm_profile") || "{}"); } catch { return {}; }
@@ -436,6 +695,7 @@ function loadProfileView() {
   el("profile-status").textContent = "";
   document.querySelectorAll(".profile-tab").forEach((t) => t.classList.remove("active"));
   document.querySelector('[data-tab="info"]').classList.add("active");
+  el("profile-tab-indicator").style.left = "3px";
   el("tab-info").classList.remove("hidden");
   el("tab-history").classList.add("hidden");
 }
@@ -473,11 +733,12 @@ async function loadHistory() {
   }
 }
 
-el("profile-btn").addEventListener("click", () => showView("profile"));
+
 document.querySelectorAll(".profile-tab").forEach((tab) => {
   tab.addEventListener("click", () => {
     document.querySelectorAll(".profile-tab").forEach((t) => t.classList.remove("active"));
     tab.classList.add("active");
+    el("profile-tab-indicator").style.left = tab.dataset.tab === "info" ? "3px" : "calc(50% + 1.5px)";
     const target = tab.dataset.tab;
     el("tab-info").classList.toggle("hidden", target !== "info");
     el("tab-history").classList.toggle("hidden", target !== "history");
