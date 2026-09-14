@@ -2,7 +2,7 @@ const BACKEND_URL = "https://melollevo-backend.dev-yovany.workers.dev";
 
 const currency = {
   format: (v) =>
-    new Intl.NumberFormat("es-CO", { maximumFractionDigits: 0 }).format(v) + " $",
+    new Intl.NumberFormat("es-CO", { maximumFractionDigits: 0 }).format(v) + " CUP",
 };
 
 let data = { categories: [], businesses: [], products: [] };
@@ -62,6 +62,40 @@ function todayHoursLine(b) {
   return "Cerrado hoy";
 }
 
+const WEEK_LABELS = ["D", "L", "M", "M", "J", "V", "S"];
+function businessOpenOnDay(b, d) {
+  if (!b || !b.schedule || !b.schedule.length) return true;
+  return b.schedule.some((r) => dayInRange(r[0], d));
+}
+const DAY_RANGE_LABELS = {
+  "lun-dom": "Todos los días",
+  "lun-vie": "Entre semana",
+  "lun-sab": "Lun a Sáb",
+  "sab-dom": "Fin de semana",
+  "lun": "Lunes", "mar": "Martes", "mie": "Miércoles", "jue": "Jueves",
+  "vie": "Viernes", "sab": "Sábado", "dom": "Domingo",
+};
+function scheduleLines(b) {
+  if (!b || !b.schedule || !b.schedule.length) {
+    return '<span class="sched-line">Todos los días</span>';
+  }
+  return b.schedule
+    .map((r) => {
+      const label = DAY_RANGE_LABELS[r[0]] || r[0];
+      const t = r[1] + " a " + r[2];
+      const h = t === "00:00 a 00:00" ? "24 horas" : t;
+      return `<span class="sched-line"><b>${label}:</b> ${h}</span>`;
+    })
+    .join("");
+}
+function weekBar(b) {
+  if (!b) return "";
+  const chips = WEEK_LABELS.map((label, d) =>
+    `<span class="day-chip${businessOpenOnDay(b, d) ? " on" : " off"}">${label}</span>`
+  ).join("");
+  return `<span class="week-bar">${chips}</span>`;
+}
+
 function statusInline(b) {
   const st = businessStatus(b);
   return `<span class="biz-status-line"><span class="open-dot ${st.open ? "on" : "off"}" data-bid="${b.id}"></span><span class="status-label">${st.label}</span></span>`;
@@ -75,7 +109,7 @@ function statusPill(b) {
 function productBizLine(p) {
   const b = getBusiness(p.businessId);
   const st = businessStatus(b);
-  return `<span class="open-dot ${st.open ? "on" : "off"}" data-bid="${p.businessId}"></span><span class="status-label">${st.label}</span><span class="biz-name">${b ? b.name : ""}</span>`;
+  return `<span class="open-dot ${st.open ? "on" : "off"}" data-bid="${p.businessId}"></span><span class="status-label">${st.label}</span>`;
 }
 
 async function loadData() {
@@ -160,9 +194,9 @@ function renderBusinesses() {
     const card = document.createElement("div");
     card.className = "business-card";
     card.innerHTML = `
+      ${statusPill(b)}
       ${businessAvatar(b)}
       <div class="business-card-name">${b.name}</div>
-      <div class="business-card-status">${statusInline(b)}</div>
       <div class="business-card-cat">${b.category || ""}</div>
       <div class="business-card-desc">${b.description || ""}</div>`;
     card.addEventListener("click", () => openBusiness(b));
@@ -177,7 +211,7 @@ function openBusiness(business) {
   el("business-detail").classList.remove("hidden");
   el("business-detail-name").textContent = business.name;
   el("business-detail-cat").textContent = business.category || "";
-  el("business-detail-status").innerHTML = statusPill(business) + ' <span class="biz-hours">' + todayHoursLine(business) + "</span>";
+  el("business-detail-status").innerHTML = statusPill(business) + weekBar(business) + `<span class="biz-hours">${scheduleLines(business)}</span>`;
   const prods = data.products.filter((p) => p.businessId === business.id);
   const cats = ["Todos", ...new Set(prods.map((p) => p.category))];
   const bar = el("business-category-bar");
@@ -211,9 +245,9 @@ function openBusiness(business) {
     const card = document.createElement("div");
     card.className = "business-card";
     card.innerHTML = `
+      ${statusPill(b)}
       ${businessAvatar(b)}
       <div class="business-card-name">${b.name}</div>
-      <div class="business-card-status">${statusInline(b)}</div>
       <div class="business-card-cat">${b.category || ""}</div>
       <div class="business-card-desc">${b.description || ""}</div>`;
     card.addEventListener("click", () => openBusiness(b));
@@ -239,13 +273,14 @@ function createProductCard(p) {
     ? `<img src="${p.image}" alt="${p.name}" />`
     : `<div class="ph" style="background:${productGradient(p.businessId)}">${bizName(p.businessId).charAt(0)}</div>`;
   card.innerHTML = `
+    ${statusPill(getBusiness(p.businessId))}
     <div class="product-media">
       ${media}
       <button class="add-float" data-id="${p.id}"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
     </div>
     <div class="product-body">
       <div class="product-name">${p.name}</div>
-      <div class="product-biz">${productBizLine(p)}</div>
+      <div class="product-biz">${bizName(p.businessId)}</div>
       <div class="product-price">${currency.format(p.price)}</div>
     </div>`;
   card.querySelector(".add-float").addEventListener("click", (e) => {
@@ -286,28 +321,33 @@ function renderProducts() {
 
 function flashAdd(btn) {
   const r = btn.getBoundingClientRect();
-  const cartBtn = document.querySelector('[data-view="cart"]');
+  const cartBtn =
+    [...document.querySelectorAll('[data-view="cart"]')].find((b) => b.offsetParent !== null) ||
+    document.querySelector('[data-view="cart"]');
   const cr = cartBtn.getBoundingClientRect();
-  const colors = ["#CE4E4D", "#d87676", "#e8928f", "#a83a39", "#5DB355"];
   const startX = r.left + r.width / 2;
   const startY = r.top + r.height / 2;
   const endX = cr.left + cr.width / 2;
   const endY = cr.top + cr.height / 2;
-  const cpX = (startX + endX) / 2 - 30;
-  const cpY = Math.min(startY, endY) - 80;
+  const buttonColors = ["#EE6A68", "#C9312E", "#E6524F", "#FF8A85", "#FFFFFF"];
 
-  for (let i = 0; i < 7; i++) {
+  for (let i = 0; i < 16; i++) {
     const ghost = document.createElement("div");
-    const size = 6 + Math.random() * 5;
-    const delay = i * 35;
-    const dur = 620 + i * 30;
+    const size = 4 + Math.random() * 5;
+    const sx = r.left + Math.random() * r.width;
+    const sy = r.top + Math.random() * r.height;
+    const c = buttonColors[i % buttonColors.length];
+    const delay = Math.random() * 80;
+    const dur = 1350 + Math.random() * 180;
+    const cpX = (sx + endX) / 2 + (Math.random() - 0.5) * 40;
+    const cpY = Math.min(sy, endY) - 70 - Math.random() * 90;
     ghost.style.cssText = `
       position:fixed; z-index:999; pointer-events:none;
       width:${size}px; height:${size}px; border-radius:50%;
-      background:${colors[i % colors.length]};
-      box-shadow:0 0 8px ${colors[i % colors.length]}90;
-      left:${startX - size / 2}px; top:${startY - size / 2}px;
-      opacity:0; transform:scale(1);
+      background:${c};
+      box-shadow:0 0 ${6 + Math.random() * 6}px ${c}80;
+      left:${sx - size / 2}px; top:${sy - size / 2}px;
+      opacity:0; transform:scale(.4);
     `;
     document.body.appendChild(ghost);
     const start = performance.now() + delay;
@@ -315,14 +355,14 @@ function flashAdd(btn) {
       let t = (now - start) / dur;
       if (t < 0) { requestAnimationFrame(tick); return; }
       if (t > 1) t = 1;
-      const ease = 1 - Math.pow(1 - t, 3);
-      const x = (1 - ease) * (1 - ease) * startX + 2 * (1 - ease) * ease * cpX + ease * ease * endX;
-      const y = (1 - ease) * (1 - ease) * startY + 2 * (1 - ease) * ease * cpY + ease * ease * endY;
-      const spread = Math.sin(t * Math.PI) * (i - 3) * 10;
+      const ease = t * t * t;
+      const x = (1 - ease) * (1 - ease) * sx + 2 * (1 - ease) * ease * cpX + ease * ease * endX;
+      const y = (1 - ease) * (1 - ease) * sy + 2 * (1 - ease) * ease * cpY + ease * ease * endY;
+      const spread = Math.sin(t * Math.PI) * (i - 7) * 4;
       ghost.style.left = x + spread - size / 2 + "px";
       ghost.style.top = y - size / 2 + "px";
-      ghost.style.opacity = t < 0.1 ? t * 10 : t > 0.7 ? (1 - t) / 0.3 : 1;
-      ghost.style.transform = `scale(${1 - t * 0.6})`;
+      ghost.style.opacity = t < 0.15 ? t / 0.15 : t > 0.97 ? (1 - t) / 0.03 : 1;
+      ghost.style.transform = `scale(${0.25 + (1 - t) * 0.75})`;
       if (t < 1) requestAnimationFrame(tick);
       else ghost.remove();
     }
@@ -402,7 +442,8 @@ function renderCart() {
   const box = el("cart-items");
   box.innerHTML = "";
   if (cart.size === 0) {
-    box.innerHTML = `<p class="empty">Tu carrito está vacío.</p>`;
+    box.innerHTML = `<p class="empty">Tu carrito está vacío.</p>
+      <button class="save-btn" id="cart-explore-btn">Explorar productos</button>`;
     return;
   }
   let total = 0;
@@ -511,6 +552,13 @@ async function submitOrder(e) {
 el("checkout-close").addEventListener("click", closeCheckout);
 el("overlay").addEventListener("click", closeCheckout);
 el("checkout-form").addEventListener("submit", submitOrder);
+document.body.addEventListener("click", (e) => {
+  if (e.target.closest("#cart-explore-btn")) {
+    showView("home");
+    setHomeTab("products");
+    switchTabs("products");
+  }
+});
 document.querySelectorAll(".nav-btn").forEach((b) =>
   b.addEventListener("click", () => showView(b.dataset.view))
 );
@@ -523,6 +571,9 @@ function setHomeTab(tab) {
   const ind = el("home-tab-indicator");
   ind.style.left = tab === "businesses" ? "calc(var(--u) / 4)" : "calc(var(--u) * 6.75)";
   ind.style.backgroundColor = tab === "businesses" ? "#5DB355" : "#CE4E4D";
+  ind.style.backgroundImage = tab === "businesses"
+    ? "linear-gradient(180deg,#67B85F,#52A348)"
+    : "linear-gradient(180deg,#D9605F,#C74A49)";
 }
 
 document.querySelectorAll(".home-tab").forEach((tab) => {
@@ -724,8 +775,8 @@ async function loadHistory() {
     box.innerHTML = Object.values(orders).map((o) => `
       <div class="history-card">
         <div class="history-date">${o.fecha} ${o.hora ? "a las " + o.hora : ""}</div>
-        <div class="history-items">${o.items.map((i) => `${i.cantidad}× ${i.producto} — ${formatPrice(i.subtotal)}`).join("<br>")}</div>
-        <div class="history-total">Total: ${formatPrice(o.total)}</div>
+        <div class="history-items">${o.items.map((i) => `${i.cantidad}× ${i.producto} — ${currency.format(i.subtotal)}`).join("<br>")}</div>
+        <div class="history-total">Total: ${currency.format(o.total)}</div>
       </div>
     `).join("");
   } catch (err) {
