@@ -127,13 +127,14 @@ img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .logo-square img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
 }
 .nav-cluster {
   display: flex;
   flex-direction: column;
   gap: calc(var(--u) * 0.625);
+  align-self: center;
 }
 .nav-btn {
   display: flex; align-items: center; justify-content: flex-start;
@@ -377,7 +378,7 @@ img { display: block; width: 100%; height: 100%; object-fit: cover; }
   display: flex;
   flex-direction: column;
   position: relative;
-  height: calc(var(--u) * 7);
+  min-height: calc(var(--u) * 7);
   box-sizing: border-box;
 }
 .product-media {
@@ -425,7 +426,7 @@ img { display: block; width: 100%; height: 100%; object-fit: cover; }
   font-weight: 600;
   line-height: 1.1;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -619,7 +620,7 @@ img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .business-grid-small { padding: 0; margin-top: 0; }
 .business-card {
   display: flex; flex-direction: column;
-  height: calc(var(--u) * 7);
+  min-height: calc(var(--u) * 7);
   background: linear-gradient(180deg, #FFFFFF, #FBFCF9); border-radius: var(--r-lg); padding: 0;
   box-shadow: inset 0 1px 0 rgba(255,255,255,.85), 0 2px 6px rgba(93, 179, 85, .22), 0 8px 20px rgba(43,43,43,.07);
   border: 1.5px solid var(--green);
@@ -642,7 +643,7 @@ img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .business-card-name {
   font-size: var(--fs-lg); font-weight: 600;
   line-height: 1.1; color: var(--text);
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
   padding: calc(var(--u) * 0.34) var(--g-sm) 2px;
 }
 .business-card-cat {
@@ -655,7 +656,7 @@ img { display: block; width: 100%; height: 100%; object-fit: cover; }
   line-height: 1.25;
   margin-top: 2px;
   padding: 0 var(--g-sm) var(--g3);
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 }
 .biz-status {
   display: inline-flex; align-items: center; gap: 5px;
