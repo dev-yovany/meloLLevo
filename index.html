@@ -47,13 +47,17 @@
         </div>
       </div>
     </div>
+    <div class="business-hero hidden" id="business-hero">
+      <button id="business-hero-back" class="biz-back-btn" aria-label="Volver"><span>Atrás</span></button>
+      <div class="business-hero-img" id="business-hero-img"></div>
+    </div>
     <div class="page">
       <div class="search-box">
         <svg class="search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
         <input type="text" id="search-input" class="search-input" placeholder="Buscar producto..." autocomplete="off" />
       </div>
-      <div class="featured-section">
-      <div class="featured-viewport">
+      <div class="featured-section" id="featured-section">
+      <div id="featured-viewport" class="featured-viewport">
         <div id="featured-track" class="featured-track"></div>
       </div>
       <div id="featured-dots" class="featured-dots"></div>
@@ -73,9 +77,11 @@
     </div>
     <div id="business-detail" class="business-detail hidden">
       <div class="business-detail-head">
-        <button id="business-back" class="icon-btn" aria-label="Volver"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
         <div class="business-detail-info">
-          <div id="business-detail-name" class="business-detail-name"></div>
+          <div class="biz-title-row">
+            <div id="business-detail-name" class="business-detail-name"></div>
+            <span id="business-detail-pill"></span>
+          </div>
           <div id="business-detail-cat" class="business-detail-cat"></div>
           <div id="business-detail-status" class="business-detail-status"></div>
         </div>
@@ -133,6 +139,11 @@
     </div>
     <div class="page">
       <div id="cart-items" class="cart-items"></div>
+      <div id="cart-summary" class="cart-summary hidden">
+        <div class="cart-summary-row"><span>Subtotal</span><span id="cart-subtotal">0 CUP</span></div>
+        <div class="cart-summary-row"><span>Mensajería</span><span id="cart-shipping">250 CUP</span></div>
+        <div class="cart-summary-row total"><span>Total</span><span id="cart-total">250 CUP</span></div>
+      </div>
     </div>
   </main>
 

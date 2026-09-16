@@ -75,16 +75,24 @@ const DAY_RANGE_LABELS = {
   "lun": "Lunes", "mar": "Martes", "mie": "Miércoles", "jue": "Jueves",
   "vie": "Viernes", "sab": "Sábado", "dom": "Domingo",
 };
+function fmt12h(t) {
+  if (!t) return t;
+  const [h, m] = t.split(":").map(Number);
+  if (isNaN(h)) return t;
+  const suffix = h < 12 ? "AM" : "PM";
+  let hh = h % 12;
+  if (hh === 0) hh = 12;
+  return `${hh}:${String(m || 0).padStart(2, "0")} ${suffix}`;
+}
 function scheduleLines(b) {
   if (!b || !b.schedule || !b.schedule.length) {
-    return '<span class="sched-line">Todos los días</span>';
+    return '<span class="sched-row"><span class="sched-day">Todos los días</span><span class="sched-time">24 horas</span></span>';
   }
   return b.schedule
     .map((r) => {
       const label = DAY_RANGE_LABELS[r[0]] || r[0];
-      const t = r[1] + " a " + r[2];
-      const h = t === "00:00 a 00:00" ? "24 horas" : t;
-      return `<span class="sched-line"><b>${label}:</b> ${h}</span>`;
+      const h = r[1] === "00:00" && r[2] === "00:00" ? "24 horas" : `${fmt12h(r[1])} a ${fmt12h(r[2])}`;
+      return `<span class="sched-row"><span class="sched-day">${label}</span><span class="sched-time">${h}</span></span>`;
     })
     .join("");
 }
@@ -126,13 +134,20 @@ async function loadData() {
 }
 
 function updateStatuses() {
-  document.querySelectorAll(".biz-status, .open-dot").forEach((n) => {
+  document.querySelectorAll(".biz-status, .open-dot[data-bid]").forEach((n) => {
     const b = getBusiness(n.dataset.bid);
     const st = businessStatus(b);
     n.classList.toggle("on", st.open);
     n.classList.toggle("off", !st.open);
     const lab = n.querySelector(".status-label");
     if (lab) lab.textContent = st.label;
+  });
+  document.querySelectorAll(".add-float[data-id]").forEach((n) => {
+    const p = getProduct(n.dataset.id);
+    const b = p && getBusiness(p.businessId);
+    const open = !!(b && businessStatus(b).open);
+    n.classList.toggle("off", !open);
+    n.setAttribute("aria-disabled", open ? "false" : "true");
   });
 }
 setInterval(updateStatuses, 60000);
@@ -151,34 +166,81 @@ function featuredCard(p) {
   return card;
 }
 
+let featuredTimer = null;
+let featuredRecent = null;
 function renderFeatured() {
   const featured = data.products.filter((p) => p.price >= 12000).slice(0, 6);
+  if (!featured.length) return;
+  const viewport = el("featured-viewport");
   const track = el("featured-track");
   const dotsBox = el("featured-dots");
+  if (!viewport || !track || !dotsBox) return;
   track.innerHTML = "";
   dotsBox.innerHTML = featured.map((_, i) => `<span class="dot${i === 0 ? " active" : ""}"></span>`).join("");
   const dots = [...dotsBox.children];
-  [...featured, ...featured.slice(0, 2)].forEach((p) => track.appendChild(featuredCard(p)));
-  let idx = 0;
+  const len = featured.length;
   const step = () => {
     const c = track.querySelector(".featured-card");
     return c ? c.getBoundingClientRect().width + parseFloat(getComputedStyle(track).columnGap) : 0;
   };
-  const move = () => {
-    track.style.transform = `translateX(${-idx * step()}px)`;
-    dots.forEach((d, i) => d.classList.toggle("active", i === idx % featured.length));
+  const setWidth = () => len * step();
+  [0, 1, 2, 3].forEach(() => featured.forEach((p) => track.appendChild(featuredCard(p))));
+  const s = { ready: false, idx: 0, gesture: false, lastAction: 0, lastMove: 0 };
+  const showDots = (i) =>
+    dots.forEach((d, k) => d.classList.toggle("active", k === i % len));
+  const setIdx = () => {
+    const w = setWidth();
+    if (!w) return;
+    const step = w / len;
+    const cur = Math.round((viewport.scrollLeft - w) / step);
+    s.idx = ((cur % len) + len) % len;
+    showDots(s.idx);
   };
-  setInterval(() => {
-    idx++;
-    if (idx > featured.length) {
-      idx = 1;
-      track.style.transition = "none";
-      void track.offsetWidth;
-    }
-    track.style.transition = "transform .55s cubic-bezier(.4, 0, .2, 1)";
-    move();
+  const center = () => {
+    if (s.gesture || !s.ready || Date.now() - s.lastMove < 400) return;
+    const w = setWidth();
+    if (!w) return;
+    let x = viewport.scrollLeft;
+    if (x >= w * 2) viewport.scrollLeft = x - w;
+    else if (x < w) viewport.scrollLeft = x + w;
+    s.lastMove = Date.now();
+    setIdx();
+  };
+  const gestureStart = () => { s.gesture = true; s.lastAction = Date.now(); };
+  const gestureEnd = () => { s.gesture = false; s.lastAction = Date.now(); };
+  viewport.addEventListener("touchstart", gestureStart, { passive: true });
+  viewport.addEventListener("touchend", gestureEnd, { passive: true });
+  viewport.addEventListener("touchcancel", gestureEnd, { passive: true });
+  viewport.addEventListener("pointerdown", gestureStart, { passive: true });
+  window.addEventListener("pointerup", (e) => {
+    if (e.pointerType === "touch" || e.pointerType === "mouse") gestureEnd();
+  }, { passive: true });
+  window.addEventListener("pointercancel", gestureEnd, { passive: true });
+  viewport.addEventListener("mousedown", gestureStart);
+  window.addEventListener("mouseup", gestureEnd);
+  const onScroll = () => { s.lastMove = Date.now(); setIdx(); };
+  viewport.addEventListener("scroll", onScroll, { passive: true });
+  viewport.addEventListener("scrollend", onScroll, { passive: true });
+  const w = setWidth();
+  if (w) {
+    viewport.style.scrollSnapType = "none";
+    viewport.scrollLeft = w;
+    viewport.style.scrollSnapType = "x mandatory";
+    s.ready = true;
+    setIdx();
+  }
+  if (featuredTimer) clearInterval(featuredTimer);
+  if (featuredRecent) clearInterval(featuredRecent);
+  featuredRecent = setInterval(center, 300);
+  featuredTimer = setInterval(() => {
+    if (!s.ready || s.gesture || Date.now() - s.lastAction < 5000) return;
+    const cw = setWidth();
+    if (!cw) return;
+    const next = (s.idx + 1) % len;
+    viewport.scrollTo({ left: cw + next * (cw / len), behavior: "smooth" });
+    s.idx = next;
+    showDots(next);
   }, 4000);
-  move();
 }
 
 function businessAvatar(b) {
@@ -204,14 +266,32 @@ function renderBusinesses() {
   });
 }
 
+function resetHomeHero() {
+  document.querySelector("#view-home .brand-hero")?.classList.remove("hidden");
+  document.querySelector("#view-home .brand-hero")?.classList.remove("always-mini");
+  el("view-home")?.classList.remove("in-business");
+  el("business-hero")?.classList.add("hidden");
+  el("featured-section")?.classList.remove("hidden");
+}
+function hideBusiness() {
+  el("business-detail").classList.add("hidden");
+  resetHomeHero();
+}
 function openBusiness(business) {
   el("home-tabs").classList.add("hidden");
   el("tab-businesses").classList.add("hidden");
   el("tab-products").classList.add("hidden");
   el("business-detail").classList.remove("hidden");
+  el("view-home").classList.add("in-business");
+  document.querySelector("#view-home .brand-hero").classList.add("always-mini");
+  el("featured-section").classList.add("hidden");
+  const heroImg = el("business-hero-img");
+  heroImg.style.backgroundImage = business.image ? `url("${business.image}")` : "";
+  el("business-hero").classList.remove("hidden");
   el("business-detail-name").textContent = business.name;
   el("business-detail-cat").textContent = business.category || "";
-  el("business-detail-status").innerHTML = statusPill(business) + weekBar(business) + `<span class="biz-hours">${scheduleLines(business)}</span>`;
+  el("business-detail-pill").innerHTML = statusPill(business);
+  el("business-detail-status").innerHTML = `<span class="sched-title">Horario</span>` + weekBar(business) + `<span class="biz-hours">${scheduleLines(business)}</span>`;
   const prods = data.products.filter((p) => p.businessId === business.id);
   const cats = ["Todos", ...new Set(prods.map((p) => p.category))];
   const bar = el("business-category-bar");
@@ -258,6 +338,7 @@ function openBusiness(business) {
 
 function closeBusiness() {
   el("home-tabs").classList.remove("hidden");
+  resetHomeHero();
   const active = document.querySelector(".home-tab.active").dataset.tab;
   el("tab-businesses").classList.toggle("hidden", active !== "businesses");
   el("tab-products").classList.toggle("hidden", active !== "products");
@@ -272,22 +353,34 @@ function createProductCard(p) {
   const media = p.image
     ? `<img src="${p.image}" alt="${p.name}" />`
     : `<div class="ph" style="background:${productGradient(p.businessId)}">${bizName(p.businessId).charAt(0)}</div>`;
+  const addBtn = document.createElement("button");
+  addBtn.className = "add-float";
+  addBtn.dataset.id = String(p.id);
+  addBtn.innerHTML = `<svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+  const setAddState = (b) => {
+    const canAdd = b && businessStatus(b).open;
+    addBtn.classList.toggle("off", !canAdd);
+    addBtn.setAttribute("aria-disabled", canAdd ? "false" : "true");
+  };
+  setAddState(getBusiness(p.businessId));
+  addBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const biz = getBusiness(p.businessId);
+    if (!biz || !businessStatus(biz).open) return;
+    addToCart(p.id);
+    flashAdd(addBtn);
+  });
   card.innerHTML = `
     ${statusPill(getBusiness(p.businessId))}
     <div class="product-media">
       ${media}
-      <button class="add-float" data-id="${p.id}"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
     </div>
     <div class="product-body">
       <div class="product-name">${p.name}</div>
       <div class="product-biz">${bizName(p.businessId)}</div>
       <div class="product-price">${currency.format(p.price)}</div>
     </div>`;
-  card.querySelector(".add-float").addEventListener("click", (e) => {
-    e.stopPropagation();
-    addToCart(p.id);
-    flashAdd(card.querySelector(".add-float"));
-  });
+  card.querySelector(".product-media").appendChild(addBtn);
   return card;
 }
 
@@ -401,7 +494,7 @@ function showView(v) {
     const active = document.querySelector(".home-tab.active").dataset.tab;
     el("tab-businesses").classList.toggle("hidden", active !== "businesses");
     el("tab-products").classList.toggle("hidden", active !== "products");
-    el("business-detail").classList.add("hidden");
+    hideBusiness();
   }
   bounceNav(v);
   if (v === "cart") renderCart();
@@ -440,21 +533,25 @@ function updateCartUI() {
 
 function renderCart() {
   const box = el("cart-items");
+  const summary = el("cart-summary");
   box.innerHTML = "";
   if (cart.size === 0) {
     box.innerHTML = `<p class="empty">Tu carrito está vacío.</p>
       <button class="save-btn" id="cart-explore-btn">Explorar productos</button>`;
+    summary.classList.add("hidden");
+    summary.parentNode.querySelector(".cart-foot")?.remove();
     return;
   }
-  let total = 0;
+  let subtotal = 0;
   cart.forEach((qty, key) => {
     const p = data.products.find((x) => String(x.id) === key);
     const bName = p ? bizName(p.businessId) : "";
     if (!p) return;
-    total += p.price * qty;
+    subtotal += p.price * qty;
     const row = document.createElement("div");
     row.className = "cart-row";
     row.innerHTML = `
+      <div class="cr-img">${p.image ? `<img src="${p.image}" alt="${p.name}" />` : ''}</div>
       <div class="cr-info">
         <div class="cr-biz">${bName}</div>
         <div class="cr-name">${p.name}</div>
@@ -465,19 +562,26 @@ function renderCart() {
         <span>${qty}</span>
         <button data-act="inc" data-id="${key}">+</button>
       </div>
-      <button data-act="del" data-id="${key}" class="cr-del" aria-label="Eliminar"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>`;
+      <button data-act="del" data-id="${key}" class="cr-del" aria-label="Eliminar"><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg></button>`;
     row.querySelector('[data-act="dec"]').addEventListener("click", () => changeQty(key, -1));
     row.querySelector('[data-act="inc"]').addEventListener("click", () => changeQty(key, 1));
     row.querySelector('[data-act="del"]').addEventListener("click", () => { cart.delete(key); updateCartUI(); renderCart(); });
     box.appendChild(row);
   });
+  const shipping = 250;
+  const total = subtotal + shipping;
+  el("cart-subtotal").textContent = currency.format(subtotal);
+  el("cart-shipping").textContent = currency.format(shipping);
+  el("cart-total").textContent = currency.format(total);
+  summary.classList.remove("hidden");
+  const summaryBox = summary.parentNode;
+  summaryBox.querySelector(".cart-foot")?.remove();
   const foot = document.createElement("div");
   foot.className = "cart-foot";
   foot.innerHTML = `
-    <div class="cart-total"><span>Total</span><strong>${currency.format(total)}</strong></div>
     <button id="checkout-button" class="primary-btn">Confirmar pedido</button>`;
   foot.querySelector("#checkout-button").addEventListener("click", openCheckout);
-  box.appendChild(foot);
+  summaryBox.appendChild(foot);
 }
 
 function openCheckout() {
@@ -589,7 +693,7 @@ function switchTabs(target) {
   const hideBox = el(hideId);
   const showBox = el(showId);
   const toProducts = target === "products";
-  el("business-detail").classList.add("hidden");
+  hideBusiness();
   const animateIn = () => {
     showBox.classList.remove("hidden");
     showBox.classList.remove("tab-enter-left", "tab-enter-right");
@@ -619,7 +723,7 @@ function goToProduct(id) {
   setHomeTab("products");
   el("tab-businesses").classList.add("hidden");
   el("tab-products").classList.remove("hidden");
-  el("business-detail").classList.add("hidden");
+  hideBusiness();
   el("home-tabs").classList.remove("hidden");
   el("search-input").value = "";
   activeCategory = p.category;
@@ -660,14 +764,14 @@ document.querySelectorAll(".search-input").forEach((inp) =>
     setHomeTab("products");
     el("tab-businesses").classList.add("hidden");
     el("tab-products").classList.remove("hidden");
-    el("business-detail").classList.add("hidden");
+    hideBusiness();
     el("home-tabs").classList.remove("hidden");
     document.querySelectorAll(".search-input").forEach((i) => { if (i !== inp) i.value = inp.value; });
     filterProducts(q);
   })
 );
 
-el("business-back").addEventListener("click", closeBusiness);
+el("business-hero-back").addEventListener("click", closeBusiness);
 el("back-to-top").addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
 el("biz-back-to-top").addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
 
@@ -686,41 +790,22 @@ function heroRef() {
 function setHeroCollapsed(next) {
   if (heroCollapsed === next) return;
   heroCollapsed = next;
-  if (next) {
-    heroes().forEach((h) => {
-      h.classList.remove("hero-construct");
-      h.classList.add("hero-collapsing");
-    });
-    setTimeout(() => heroes().forEach((h) => {
-      h.classList.remove("hero-collapsing");
-      h.classList.add("hero-collapsed");
-    }), 360);
-  } else {
-    heroes().forEach((h) => h.classList.add("hero-collapsing"));
-    setTimeout(() =>
-      heroes().forEach((h) => {
-        h.classList.remove("hero-collapsed", "hero-collapsing");
-        h.classList.add("hero-construct");
-        setTimeout(() => h.classList.remove("hero-construct"), 900);
-      }), 250);
-  }
+  heroes().forEach((h) => {
+    h.classList.remove("hero-construct", "hero-collapsing", "hero-collapsed");
+    if (next) h.classList.add("hero-collapsed");
+    else h.classList.add("hero-construct");
+  });
+  if (!next)
+    setTimeout(() => heroes().forEach((h) => h.classList.remove("hero-construct")), 900);
 }
 
 function revealHomeHero() {
   heroCollapsed = false;
   heroes().forEach((h) => {
-    if (h.classList.contains("hero-collapsed")) {
-      h.classList.add("hero-collapsing");
-      setTimeout(() => {
-        h.classList.remove("hero-collapsed", "hero-collapsing");
-        h.classList.add("hero-construct");
-        setTimeout(() => h.classList.remove("hero-construct"), 900);
-      }, 250);
-    } else {
-      h.classList.remove("hero-collapsing", "hero-collapsed");
-      h.classList.add("hero-construct");
-      setTimeout(() => h.classList.remove("hero-construct"), 900);
-    }
+    h.classList.remove("hero-collapsed", "hero-collapsing");
+    void h.offsetWidth;
+    h.classList.add("hero-construct");
+    setTimeout(() => h.classList.remove("hero-construct"), 900);
   });
 }
 window.addEventListener(
@@ -733,6 +818,36 @@ window.addEventListener(
   },
   { passive: true }
 );
+
+/* Business category bar: marca "pinned" al quedar fija debajo del nav chiquito */
+(() => {
+  const bar = el("business-category-bar");
+  if (!bar) return;
+  const stickyTop = () => {
+    const n = parseFloat(getComputedStyle(bar).top);
+    return Number.isFinite(n) ? n : 0;
+  };
+  let pinned = false;
+  const onScroll = () => {
+    if (el("business-detail").classList.contains("hidden")) {
+      if (pinned) {
+        pinned = false;
+        bar.classList.remove("pinned");
+      }
+      return;
+    }
+    const r = bar.getBoundingClientRect();
+    const next = r.top <= stickyTop() + 1;
+    if (next !== pinned) {
+      pinned = next;
+      bar.classList.toggle("pinned", pinned);
+    }
+  };
+  window.addEventListener("scroll", onScroll, { passive: true });
+  document.addEventListener("scroll", onScroll, { passive: true });
+  window.addEventListener("resize", onScroll, { passive: true });
+  onScroll();
+})();
 
 function getProfile() {
   try { return JSON.parse(localStorage.getItem("mm_profile") || "{}"); } catch { return {}; }
@@ -772,13 +887,21 @@ async function loadHistory() {
       if (!orders[key]) orders[key] = { fecha: v.fecha, hora: v.hora, items: [], total: v.total };
       orders[key].items.push(v);
     });
-    box.innerHTML = Object.values(orders).map((o) => `
+    box.innerHTML = Object.values(orders).map((o) => {
+      const sub = o.items.reduce((s, i) => s + i.subtotal, 0);
+      const ship = o.total - sub;
+      return `
       <div class="history-card">
         <div class="history-date">${o.fecha} ${o.hora ? "a las " + o.hora : ""}</div>
         <div class="history-items">${o.items.map((i) => `${i.cantidad}× ${i.producto} — ${currency.format(i.subtotal)}`).join("<br>")}</div>
-        <div class="history-total">Total: ${currency.format(o.total)}</div>
+        <div class="history-breakdown">
+          <div class="cart-summary-row"><span>Subtotal</span><span>${currency.format(sub)}</span></div>
+          <div class="cart-summary-row"><span>Mensajería</span><span>${currency.format(ship)}</span></div>
+          <div class="cart-summary-row total"><span>Total</span><span>${currency.format(o.total)}</span></div>
+        </div>
       </div>
-    `).join("");
+    `;
+    }).join("");
   } catch (err) {
     box.innerHTML = '<p class="empty">Error: ' + err.message + "</p>";
   }
