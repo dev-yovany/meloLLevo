@@ -819,9 +819,12 @@ window.addEventListener(
   { passive: true }
 );
 
-/* Business category bar: marca "pinned" al quedar fija debajo del nav chiquito */
-(() => {
-  const bar = el("business-category-bar");
+/* Barras de categorías: marcan "pinned" al quedar fijas debajo del nav chiquito */
+[
+  ["business-category-bar", () => !el("business-detail").classList.contains("hidden")],
+  ["category-bar", () => !el("tab-products").classList.contains("hidden")],
+].forEach(([id, isVisible]) => {
+  const bar = el(id);
   if (!bar) return;
   const stickyTop = () => {
     const n = parseFloat(getComputedStyle(bar).top);
@@ -829,7 +832,7 @@ window.addEventListener(
   };
   let pinned = false;
   const onScroll = () => {
-    if (el("business-detail").classList.contains("hidden")) {
+    if (!isVisible()) {
       if (pinned) {
         pinned = false;
         bar.classList.remove("pinned");
@@ -847,7 +850,28 @@ window.addEventListener(
   document.addEventListener("scroll", onScroll, { passive: true });
   window.addEventListener("resize", onScroll, { passive: true });
   onScroll();
-})();
+});
+
+/* Toggle de vista lista/cuadrícula de productos */
+document.querySelectorAll(".view-toggle").forEach((group) => {
+  const grid = document.getElementById(group.dataset.grid);
+  if (!grid) return;
+  const btns = group.querySelectorAll(".view-toggle-btn");
+  const apply = (view, save) => {
+    grid.classList.toggle("list-view", view === "list");
+    btns.forEach((b) => b.classList.toggle("active", b.dataset.view === view));
+    if (save) {
+      try { localStorage.setItem("mm_view_" + group.dataset.grid, view); } catch {}
+    }
+  };
+  btns.forEach((b) =>
+    b.addEventListener("click", () => apply(b.dataset.view, true))
+  );
+  let saved = null;
+  try { saved = localStorage.getItem("mm_view_" + group.dataset.grid); } catch {}
+  if (saved === "list" || saved === "grid") apply(saved, false);
+  else apply(group.dataset.default || "grid", false);
+});
 
 function getProfile() {
   try { return JSON.parse(localStorage.getItem("mm_profile") || "{}"); } catch { return {}; }
