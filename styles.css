@@ -89,16 +89,17 @@ img { display: block; width: 100%; height: 100%; object-fit: cover; }
   background-color: #5DB355;
   background-image:
     radial-gradient(120% 60% at 50% -30%, rgba(255,255,255,.22), transparent 60%),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 200'%3E%3Cpath fill='%2398DF92' opacity='0.5' d='M0 70 C110 18 260 100 430 55 C590 15 730 60 880 34 C1020 12 1140 30 1200 26 L1200 200 L0 200 Z'/%3E%3Cpath fill='%2379CC72' opacity='0.55' d='M0 100 C130 45 290 140 470 95 C640 55 800 105 960 72 C1080 52 1150 70 1200 60 L1200 200 L0 200 Z'/%3E%3Cpath fill='%234CA748' opacity='0.5' d='M0 132 C150 45 320 205 470 150 C620 98 770 128 930 102 C1050 80 1130 42 1200 72 L1200 200 L0 200 Z'/%3E%3Cpath fill='%232E7D3A' opacity='0.75' d='M0 178 C110 112 300 208 485 168 C680 118 920 178 1200 132 L1200 200 L0 200 Z'/%3E%3C/svg%3E");
+    url("fotos%20ejemplo/fondoHero.jpg");
   background-repeat: no-repeat, no-repeat;
   background-size: cover, cover;
-  background-position: center top, center bottom;
+  background-position: center top, center top;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
 }
 .brand-hero.always-mini {
   background-image: none;
+  background-color: #85CF6F;
 }
 .business-hero {
   position: fixed;
@@ -242,6 +243,7 @@ img { display: block; width: 100%; height: 100%; object-fit: cover; }
   padding: calc(var(--u) * 0.3 + env(safe-area-inset-top)) var(--u) calc(var(--u) * 0.3);
   box-shadow: 0 6px 18px rgba(43,43,43,.16);
   background-image: none;
+  background-color: #85CF6F;
 }
 .brand-hero.hero-collapsed .hero-row { display: none; }
 .brand-hero.hero-collapsed .hero-mini { display: flex; }
@@ -399,9 +401,10 @@ img { display: block; width: 100%; height: 100%; object-fit: cover; }
   transition: all .15s ease;
 }
 .cat-pill.active {
-  background: linear-gradient(180deg, #E86F6E, #B73E3D);
-  border-color: rgba(255,255,255,.45);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
+  background: linear-gradient(180deg, #FFFFFF, #FFF1EF);
+  color: var(--accent);
+  border-color: var(--accent);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 2px 8px rgba(206,78,77,.25);
 }
 
 /* ── Product grid ── */
