@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
+  <link rel="preload" as="image" href="fotos%20ejemplo/fondoHero.jpg" />
 </head>
 <body>
   <main id="view-home" class="view">
@@ -50,6 +51,10 @@
     <div class="business-hero hidden" id="business-hero">
       <button id="business-hero-back" class="biz-back-btn" aria-label="Volver"><span>Atrás</span></button>
       <div class="business-hero-img" id="business-hero-img"></div>
+    </div>
+    <div class="product-hero hidden" id="product-hero">
+      <button id="product-hero-back" class="biz-back-btn" aria-label="Volver"><span>Atrás</span></button>
+      <div class="product-hero-img" id="product-hero-img"></div>
     </div>
     <div class="page">
       <div class="search-box">
@@ -123,6 +128,24 @@
         <div class="section-title">Negocios recomendados</div>
         <div id="recommended-list" class="business-grid business-grid-small"></div>
 </div>
+    </div>
+    <div id="product-detail" class="business-detail hidden">
+      <div class="business-detail-head">
+        <div class="business-detail-info">
+          <div class="biz-title-row">
+            <div id="product-detail-name" class="business-detail-name"></div>
+            <span id="product-detail-pill"></span>
+          </div>
+          <div id="product-detail-biz" class="business-detail-cat"></div>
+          <div id="product-detail-price" class="product-detail-price"></div>
+        </div>
+      </div>
+      <div id="product-detail-desc" class="product-detail-desc"></div>
+      <div id="product-detail-actions" class="product-detail-actions">
+        <button id="product-detail-add" class="add-capsule">
+          <span>Añadir al carrito</span>
+        </button>
+      </div>
     </div>
     </div>
   </main>

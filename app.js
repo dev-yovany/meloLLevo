@@ -7,6 +7,9 @@ const currency = {
 
 let data = { categories: [], businesses: [], products: [] };
 let activeCategory = "Todos";
+let productFromBusiness = false;
+let detailScrollY = 0;
+let listScrollY = 0;
 const cart = new Map();
 const el = (id) => document.getElementById(id);
 
@@ -271,20 +274,27 @@ function resetHomeHero() {
   document.querySelector("#view-home .brand-hero")?.classList.remove("always-mini");
   el("view-home")?.classList.remove("in-business");
   el("business-hero")?.classList.add("hidden");
+  el("product-hero")?.classList.add("hidden");
   el("featured-section")?.classList.remove("hidden");
 }
 function hideBusiness() {
   el("business-detail").classList.add("hidden");
+  el("product-detail").classList.add("hidden");
   resetHomeHero();
 }
 function openBusiness(business) {
   el("home-tabs").classList.add("hidden");
   el("tab-businesses").classList.add("hidden");
   el("tab-products").classList.add("hidden");
+  el("product-detail").classList.add("hidden");
   el("business-detail").classList.remove("hidden");
   el("view-home").classList.add("in-business");
-  document.querySelector("#view-home .brand-hero").classList.add("always-mini");
+  const homeHero = document.querySelector("#view-home .brand-hero");
+  homeHero.classList.add("always-mini");
+  homeHero.classList.remove("hero-collapsed");
+  heroCollapsed = false;
   el("featured-section").classList.add("hidden");
+  el("product-hero").classList.add("hidden");
   const heroImg = el("business-hero-img");
   heroImg.style.backgroundImage = business.image ? `url("${business.image}")` : "";
   el("business-hero").classList.remove("hidden");
@@ -333,6 +343,7 @@ function openBusiness(business) {
     card.addEventListener("click", () => openBusiness(b));
     rec.appendChild(card);
   });
+  listScrollY = window.scrollY;
   window.scrollTo(0, 0);
 }
 
@@ -343,7 +354,72 @@ function closeBusiness() {
   el("tab-businesses").classList.toggle("hidden", active !== "businesses");
   el("tab-products").classList.toggle("hidden", active !== "products");
   el("business-detail").classList.add("hidden");
+  window.scrollTo(0, listScrollY);
+  setHeroCollapsed(listScrollY >= heroRef() * 0.7);
+}
+
+function openProduct(product) {
+  productFromBusiness = !el("business-detail").classList.contains("hidden");
+  detailScrollY = window.scrollY;
+  const biz = getBusiness(product.businessId);
+  el("home-tabs").classList.add("hidden");
+  el("tab-businesses").classList.add("hidden");
+  el("tab-products").classList.add("hidden");
+  el("business-detail").classList.add("hidden");
+  el("product-detail").classList.remove("hidden");
+  el("view-home").classList.add("in-business");
+  const homeHero = document.querySelector("#view-home .brand-hero");
+  homeHero.classList.add("always-mini");
+  homeHero.classList.remove("hero-collapsed");
+  heroCollapsed = false;
+  el("business-hero").classList.add("hidden");
+  el("product-hero").classList.remove("hidden");
+  el("featured-section").classList.add("hidden");
+  const heroImg = el("product-hero-img");
+  heroImg.style.backgroundImage = product.image
+    ? `url("${product.image}")`
+    : productGradient(product.businessId);
+  el("product-detail-name").textContent = product.name;
+  el("product-detail-pill").innerHTML = statusPill(biz);
+  el("product-detail-biz").textContent = bizName(product.businessId);
+  el("product-detail-price").textContent = currency.format(product.price);
+  el("product-detail-desc").textContent =
+    "Aquí irá la descripción completa de este producto, sus especificaciones y cualquier detalle relevante para el cliente.";
+  const addBtn = el("product-detail-add");
+  const open = !!biz && businessStatus(biz).open;
+  addBtn.classList.toggle("off", !open);
+  addBtn.onclick = () => {
+    if (!open) return;
+    addToCart(product.id);
+    flashAdd(addBtn);
+    bounceNav("cart");
+  };
   window.scrollTo(0, 0);
+}
+
+function closeProduct() {
+  el("product-detail").classList.add("hidden");
+  if (productFromBusiness) {
+    el("business-detail").classList.remove("hidden");
+    el("home-tabs").classList.add("hidden");
+    el("view-home").classList.add("in-business");
+    const homeHero = document.querySelector("#view-home .brand-hero");
+    homeHero.classList.add("always-mini");
+    homeHero.classList.remove("hero-collapsed");
+    heroCollapsed = false;
+    el("business-hero").classList.remove("hidden");
+    el("product-hero").classList.add("hidden");
+    el("featured-section").classList.add("hidden");
+    window.scrollTo(0, detailScrollY);
+    return;
+  }
+  el("home-tabs").classList.remove("hidden");
+  resetHomeHero();
+  const active = document.querySelector(".home-tab.active").dataset.tab;
+  el("tab-businesses").classList.toggle("hidden", active !== "businesses");
+  el("tab-products").classList.toggle("hidden", active !== "products");
+  window.scrollTo(0, detailScrollY);
+  setHeroCollapsed(detailScrollY >= heroRef() * 0.7);
 }
 
 function createProductCard(p) {
@@ -381,6 +457,7 @@ function createProductCard(p) {
       <div class="product-price">${currency.format(p.price)}</div>
     </div>`;
   card.querySelector(".product-media").appendChild(addBtn);
+  card.addEventListener("click", () => openProduct(p));
   return card;
 }
 
@@ -497,6 +574,7 @@ function showView(v) {
     hideBusiness();
   }
   bounceNav(v);
+  if (v === "cart" || v === "profile") el("view-" + v).classList.add("no-entrance");
   if (v === "cart") renderCart();
   if (v === "profile") loadProfileView();
   if (v === "home" && !wasHome && window.scrollY < scrollRef * 0.35)
@@ -720,27 +798,7 @@ function goToProduct(id) {
   if (!p) return;
   const wasHidden = el("view-home").classList.contains("hidden");
   if (wasHidden) showView("home");
-  setHomeTab("products");
-  el("tab-businesses").classList.add("hidden");
-  el("tab-products").classList.remove("hidden");
-  hideBusiness();
-  el("home-tabs").classList.remove("hidden");
-  el("search-input").value = "";
-  activeCategory = p.category;
-  document.querySelectorAll("#category-bar .cat-pill").forEach((pill) =>
-    pill.classList.toggle("active", pill.textContent === p.category)
-  );
-  renderProducts();
-  const wait = wasHidden ? 620 : 90;
-  setTimeout(() => {
-    const target = [...document.querySelectorAll("#product-list .product-card")].find(
-      (c) => c.dataset.id === String(p.id)
-    );
-    if (!target) return;
-    target.scrollIntoView({ behavior: "smooth", block: "center" });
-    target.classList.add("target-flash");
-    setTimeout(() => target.classList.remove("target-flash"), 1900);
-  }, wait);
+  openProduct(p);
 }
 
 function filterProducts(query) {
@@ -772,12 +830,16 @@ document.querySelectorAll(".search-input").forEach((inp) =>
 );
 
 el("business-hero-back").addEventListener("click", closeBusiness);
+el("product-hero-back").addEventListener("click", closeProduct);
 el("back-to-top").addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
 el("biz-back-to-top").addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
 
 
 loadData();
 updateCartUI();
+
+if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+window.scrollTo(0, 0);
 
 let heroCollapsed = false;
 const heroes = () => document.querySelectorAll(".brand-hero:not(.always-mini)");
@@ -788,15 +850,16 @@ function heroRef() {
   return parseFloat(getComputedStyle(pg).marginTop) || 0;
 }
 function setHeroCollapsed(next) {
-  if (heroCollapsed === next) return;
-  heroCollapsed = next;
   heroes().forEach((h) => {
+    const has = h.classList.contains("hero-collapsed");
+    if (has === next) return;
+    heroCollapsed = next;
     h.classList.remove("hero-construct", "hero-collapsing", "hero-collapsed");
     if (next) h.classList.add("hero-collapsed");
     else h.classList.add("hero-construct");
+    if (!next)
+      setTimeout(() => h.classList.remove("hero-construct"), 900);
   });
-  if (!next)
-    setTimeout(() => heroes().forEach((h) => h.classList.remove("hero-construct")), 900);
 }
 
 function revealHomeHero() {
@@ -808,16 +871,28 @@ function revealHomeHero() {
     setTimeout(() => h.classList.remove("hero-construct"), 900);
   });
 }
+function updateLogoProgress() {
+  const home = el("view-home");
+  const isHome =
+    home && !home.classList.contains("hidden") && !home.classList.contains("in-business");
+  if (!isHome) { document.documentElement.style.setProperty("--logo-t", "0"); return; }
+  const ref = heroRef();
+  const t = ref > 0 ? Math.min(1, Math.max(0, window.scrollY / (ref * 0.6))) : 0;
+  document.documentElement.style.setProperty("--logo-t", t.toFixed(4));
+}
 window.addEventListener(
   "scroll",
   () => {
+    updateLogoProgress();
     const ref = heroRef();
     const y = window.scrollY;
-    if (!heroCollapsed && y >= ref * 0.85) setHeroCollapsed(true);
+    if (!heroCollapsed && y >= ref * 0.7) setHeroCollapsed(true);
     else if (heroCollapsed && y < ref * 0.35) setHeroCollapsed(false);
   },
   { passive: true }
 );
+window.addEventListener("resize", updateLogoProgress, { passive: true });
+updateLogoProgress();
 
 /* Barras de categorías: marcan "pinned" al quedar fijas debajo del nav chiquito */
 [
