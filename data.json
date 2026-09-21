@@ -79,6 +79,13 @@
       "description": "Helados y postres fríos",
       "schedule": [["sab-dom", "14:00", "21:00"]],
       "image": "fotos%20ejemplo/negocios/1.jpg"
+    },
+    {
+      "id": "b11",
+      "name": "Frappio",
+      "description": "Frappes y bebidas preparadas",
+      "schedule": [["lun-dom", "00:00", "00:00"]],
+      "image": "fotos%20ejemplo/negocios/5.jpg"
     }
   ],
   "products": [
@@ -1071,6 +1078,174 @@
       "description": "Individual",
       "category": "Comida",
       "image": "fotos%20ejemplo/productos/4.jpg"
+    },
+    {
+      "id": 111,
+      "businessId": "b11",
+      "name": "Frappio bombón",
+      "price": 900,
+      "description": "Frappe cremoso dulce",
+      "category": "Bebidas",
+      "image": "fotos%20ejemplo/productos/frappio1.jpg",
+      "groups": [
+        { "name": "Añadidos", "multi": true, "options": [
+          { "name": "Oreo", "extra": 150 },
+          { "name": "Galleta", "extra": 150 },
+          { "name": "Chocolate", "extra": 150 },
+          { "name": "Vainilla", "extra": 150 },
+          { "name": "Fresa", "extra": 150 },
+          { "name": "Mango", "extra": 150 },
+          { "name": "Caramelo", "extra": 150 },
+          { "name": "Crema batida", "extra": 150 }
+        ] }
+      ]
+    },
+    {
+      "id": 112,
+      "businessId": "b11",
+      "name": "Frappio dos leches",
+      "price": 900,
+      "description": "Frappe con leche evaporada y condensada",
+      "category": "Bebidas",
+      "image": "fotos%20ejemplo/productos/frappio2.jpg",
+      "groups": [
+        { "name": "Añadidos", "multi": true, "options": [
+          { "name": "Oreo", "extra": 150 },
+          { "name": "Galleta", "extra": 150 },
+          { "name": "Chocolate", "extra": 150 },
+          { "name": "Vainilla", "extra": 150 },
+          { "name": "Fresa", "extra": 150 },
+          { "name": "Mango", "extra": 150 },
+          { "name": "Caramelo", "extra": 150 },
+          { "name": "Crema batida", "extra": 150 }
+        ] }
+      ]
+    },
+    {
+      "id": 113,
+      "businessId": "b11",
+      "name": "Frappio oreo",
+      "price": 900,
+      "description": "Frappe con galleta oreo",
+      "category": "Bebidas",
+      "image": "fotos%20ejemplo/productos/frappio3.jpg",
+      "groups": [
+        { "name": "Añadidos", "multi": true, "options": [
+          { "name": "Oreo", "extra": 150 },
+          { "name": "Galleta", "extra": 150 },
+          { "name": "Chocolate", "extra": 150 },
+          { "name": "Vainilla", "extra": 150 },
+          { "name": "Fresa", "extra": 150 },
+          { "name": "Mango", "extra": 150 },
+          { "name": "Caramelo", "extra": 150 },
+          { "name": "Crema batida", "extra": 150 }
+        ] }
+      ]
+    },
+    {
+      "id": 114,
+      "businessId": "b11",
+      "name": "Frappio fresa",
+      "price": 900,
+      "description": "Frappe sabor fresa",
+      "category": "Bebidas",
+      "image": "fotos%20ejemplo/productos/frappio4.jpg",
+      "groups": [
+        { "name": "Añadidos", "multi": true, "options": [
+          { "name": "Oreo", "extra": 150 },
+          { "name": "Galleta", "extra": 150 },
+          { "name": "Chocolate", "extra": 150 },
+          { "name": "Vainilla", "extra": 150 },
+          { "name": "Fresa", "extra": 150 },
+          { "name": "Mango", "extra": 150 },
+          { "name": "Caramelo", "extra": 150 },
+          { "name": "Crema batida", "extra": 150 }
+        ] }
+      ]
+    },
+    {
+      "id": 115,
+      "businessId": "b11",
+      "name": "Frappio mango",
+      "price": 900,
+      "description": "Frappe sabor mango",
+      "category": "Bebidas",
+      "image": "fotos%20ejemplo/productos/frappio5.jpg",
+      "groups": [
+        { "name": "Añadidos", "multi": true, "options": [
+          { "name": "Oreo", "extra": 150 },
+          { "name": "Galleta", "extra": 150 },
+          { "name": "Chocolate", "extra": 150 },
+          { "name": "Vainilla", "extra": 150 },
+          { "name": "Fresa", "extra": 150 },
+          { "name": "Mango", "extra": 150 },
+          { "name": "Caramelo", "extra": 150 },
+          { "name": "Crema batida", "extra": 150 }
+        ] }
+      ]
+    },
+    {
+      "id": 116,
+      "businessId": "b11",
+      "name": "Frappio caramelo",
+      "price": 900,
+      "description": "Frappe sabor caramelo",
+      "category": "Bebidas",
+      "image": "fotos%20ejemplo/productos/frappio6.jpg",
+      "groups": [
+        { "name": "Añadidos", "multi": true, "options": [
+          { "name": "Oreo", "extra": 150 },
+          { "name": "Galleta", "extra": 150 },
+          { "name": "Chocolate", "extra": 150 },
+          { "name": "Vainilla", "extra": 150 },
+          { "name": "Fresa", "extra": 150 },
+          { "name": "Mango", "extra": 150 },
+          { "name": "Caramelo", "extra": 150 },
+          { "name": "Crema batida", "extra": 150 }
+        ] }
+      ]
+    },
+    {
+      "id": 117,
+      "businessId": "b11",
+      "name": "Frappio chocolate",
+      "price": 900,
+      "description": "Frappe sabor chocolate",
+      "category": "Bebidas",
+      "image": "fotos%20ejemplo/productos/frappio7.jpg",
+      "groups": [
+        { "name": "Añadidos", "multi": true, "options": [
+          { "name": "Oreo", "extra": 150 },
+          { "name": "Galleta", "extra": 150 },
+          { "name": "Chocolate", "extra": 150 },
+          { "name": "Vainilla", "extra": 150 },
+          { "name": "Fresa", "extra": 150 },
+          { "name": "Mango", "extra": 150 },
+          { "name": "Caramelo", "extra": 150 },
+          { "name": "Crema batida", "extra": 150 }
+        ] }
+      ]
+    },
+    {
+      "id": 118,
+      "businessId": "b11",
+      "name": "Frappio café",
+      "price": 900,
+      "description": "Frappe con café",
+      "category": "Bebidas",
+      "image": "fotos%20ejemplo/productos/frappio8.jpg",
+      "groups": [
+        { "name": "Añadidos", "multi": true, "options": [
+          { "name": "Oreo", "extra": 150 },
+          { "name": "Galleta", "extra": 150 },
+          { "name": "Chocolate", "extra": 150 },
+          { "name": "Vainilla", "extra": 150 },
+          { "name": "Fresa", "extra": 150 },
+          { "name": "Mango", "extra": 150 },
+          { "name": "Caramelo", "extra": 150 },
+          { "name": "Crema batida", "extra": 150 }
+        ] }
+      ]
     }
   ]
 }

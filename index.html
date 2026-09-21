@@ -48,12 +48,12 @@
         </div>
       </div>
     </div>
+    <button id="business-hero-back" class="biz-back-btn hidden" aria-label="Volver"><span>&lt;</span></button>
+    <button id="product-hero-back" class="biz-back-btn hidden" aria-label="Volver"><span>&lt;</span></button>
     <div class="business-hero hidden" id="business-hero">
-      <button id="business-hero-back" class="biz-back-btn" aria-label="Volver"><span>Atrás</span></button>
       <div class="business-hero-img" id="business-hero-img"></div>
     </div>
     <div class="product-hero hidden" id="product-hero">
-      <button id="product-hero-back" class="biz-back-btn" aria-label="Volver"><span>Atrás</span></button>
       <div class="product-hero-img" id="product-hero-img"></div>
     </div>
     <div class="page">
@@ -141,16 +141,31 @@
         </div>
       </div>
       <div id="product-detail-desc" class="product-detail-desc"></div>
+      <div id="product-options" class="product-options hidden"></div>
       <div id="product-detail-actions" class="product-detail-actions">
         <button id="product-detail-add" class="add-capsule">
           <span>Añadir al carrito</span>
         </button>
+        <div id="product-detail-qty" class="detail-qty hidden">
+          <button type="button" class="cq-btn" data-a="minus" aria-label="Quitar">−</button>
+          <input type="text" class="cq-input" id="detail-qty-input" inputmode="numeric" autocomplete="off" aria-label="Cantidad" value="1" />
+          <button type="button" class="cq-btn" data-a="plus" aria-label="Sumar">+</button>
+          <button type="button" class="cq-del" id="detail-qty-del" aria-label="Eliminar"><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg></button>
+        </div>
+      </div>
+      <div id="similar-section" class="featured-section hidden">
+        <div class="section-title">Productos similares</div>
+        <div id="similar-viewport" class="featured-viewport">
+          <div id="similar-track" class="featured-track"></div>
+        </div>
+        <div id="similar-dots" class="featured-dots"></div>
       </div>
     </div>
     </div>
   </main>
 
   <main id="view-cart" class="view view-cart hidden">
+    <button id="cart-hero-back" class="biz-back-btn hidden" aria-label="Volver">&lt;</button>
     <div class="brand-hero always-mini">
       <div class="hero-row">
         <div class="logo-square"><img src="fotos%20ejemplo/logo.png" alt="MegaMerca" /></div>
@@ -201,6 +216,7 @@
   </main>
 
   <main id="view-profile" class="view view-profile hidden">
+    <button id="profile-hero-back" class="biz-back-btn hidden" aria-label="Volver">&lt;</button>
     <div class="brand-hero always-mini">
       <div class="hero-row">
         <div class="logo-square"><img src="fotos%20ejemplo/logo.png" alt="MegaMerca" /></div>
@@ -298,11 +314,11 @@
       <label>Lugar / dirección
         <input type="text" name="place" required />
       </label>
-      <label>Fecha de entrega
-        <input type="date" name="date" />
-      </label>
       <label>Hora de entrega
-        <input type="time" name="time" />
+        <select name="time" id="checkout-time">
+          <option value="">Entregar lo antes posible</option>
+        </select>
+        <small class="time-hint">Disponible de 9:00 a 21:00</small>
       </label>
       <button type="submit" class="primary-btn">Confirmar pedido</button>
       <p id="checkout-status" class="status-msg"></p>
