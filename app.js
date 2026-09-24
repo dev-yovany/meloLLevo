@@ -1,4 +1,59 @@
 const BACKEND_URL = "https://melollevo-backend.dev-yovany.workers.dev";
+let serverOffsetMs = 0;
+function syncServerTime() {
+  fetch(BACKEND_URL + "/time")
+    .then((r) => (r.ok ? r.json() : null))
+    .then((j) => {
+      if (!j || !j.iso) return;
+      const t = new Date(j.iso).getTime();
+      if (Number.isFinite(t)) serverOffsetMs = t - Date.now();
+    })
+    .catch(() => {});
+}
+function clockNow() {
+  return new Date(Date.now() + serverOffsetMs);
+}
+const HH_TIME_FMT = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/Havana",
+  hour12: false,
+  weekday: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+const HH_DATE_FMT = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Havana",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+const HH_DATE_DISPLAY_FMT = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "America/Havana",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+});
+function cubaDateStr(iso) {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    return HH_DATE_DISPLAY_FMT.format(d);
+  } catch {
+    return "";
+  }
+}
+function cubaNowDate() {
+  const p = HH_DATE_FMT.formatToParts(clockNow());
+  const gv = (t) => p.find((x) => x.type === t).value;
+  return `${gv("year")}-${gv("month")}-${gv("day")}`;
+}
+function havanaNow() {
+  const p = HH_TIME_FMT.formatToParts(clockNow());
+  const gv = (t) => p.find((x) => x.type === t).value;
+  const h = parseInt(gv("hour"), 10) % 24;
+  const m = parseInt(gv("minute"), 10);
+  const WD = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return { day: WD[gv("weekday")], h, m, mins: h * 60 + m };
+}
 
 const currency = {
   format: (v) =>
@@ -47,8 +102,9 @@ function dayInRange(days, d) {
 
 function businessStatus(b) {
   if (!b || !b.schedule || !b.schedule.length) return { open: true, label: "Abierto" };
-  const d = new Date().getDay();
-  const mins = new Date().getHours() * 60 + new Date().getMinutes();
+  const now = havanaNow();
+  const d = now.day;
+  const mins = now.mins;
   for (const rule of b.schedule) {
     if (!dayInRange(rule[0], d)) continue;
     const [oh, om] = rule[1].split(":").map(Number);
@@ -66,9 +122,9 @@ function businessStatus(b) {
 
 function todayHoursLine(b) {
   if (!b || !b.schedule || !b.schedule.length) return "Disponible todos los días";
-  const d = new Date().getDay();
+  const d = havanaNow().day;
   for (const rule of b.schedule) {
-    if (dayInRange(rule[0], d)) return `Hoy: ${rule[1]} a ${rule[2]}`;
+    if (dayInRange(rule[0], d)) return `Hoy: ${fmt12h(rule[1])} a ${fmt12h(rule[2])}`;
   }
   return "Cerrado hoy";
 }
@@ -400,7 +456,7 @@ function openBusiness(business) {
   });
   listScrollY = window.scrollY;
   window.scrollTo(0, 0);
-  armDetailBack();
+  enterView();
 }
 
 function closeBusiness() {
@@ -424,12 +480,11 @@ function renderProductOptions(product, sel) {
   }
   box.classList.remove("hidden");
   box.innerHTML =
-    `<div class="opt-note">Elige los añadidos que prefieras (1 de cada uno).</div>` +
+    `<div class="opt-note">Elige añadidos (1 de cada uno).</div>` +
     product.groups
       .map(
         (g, gi) => `
       <div class="opt-group">
-        <div class="opt-title">${g.name}</div>
         <div class="opt-list">
           ${g.options
             .map(
@@ -437,7 +492,6 @@ function renderProductOptions(product, sel) {
             <button type="button" class="opt-item" data-g="${gi}" data-o="${oi}" aria-pressed="false">
               <span class="opt-name">${o.name}</span>
               <span class="opt-extra">${o.extra ? "+" + currency.format(o.extra) : ""}</span>
-              <span class="opt-tick">✓</span>
             </button>`
             )
             .join("")}
@@ -578,7 +632,7 @@ function openProduct(product, presel) {
   refreshDetail();
   renderSimilar(product);
   window.scrollTo(0, 0);
-  armDetailBack();
+  enterView();
 }
 
 function closeProduct() {
@@ -1121,47 +1175,74 @@ function buildOrder(formData) {
   return {
     client: formData.get("clientName"),
     contact: formData.get("contact"),
-    date: new Date().toISOString().slice(0, 10),
-    time: formData.get("time") || "Entregar lo antes posible",
+    date: cubaNowDate(),
+    time: fmt12h(formData.get("time")) || "Entregar lo antes posible",
     place: formData.get("place"),
     items,
     total,
-    createdAt: new Date().toISOString(),
+    createdAt: clockNow().toISOString(),
   };
 }
 
 function buildTimeSelect() {
   const sel = el("checkout-time");
   if (!sel) return;
-  const now = new Date();
-  const curMin = now.getHours() * 60 + now.getMinutes();
+  const curMin = havanaNow().mins;
+  const closed = curMin >= 21 * 60 || curMin < 6 * 60;
+  if (closed) {
+    sel.innerHTML = `<option value="">Cerrado</option>`;
+    sel.disabled = true;
+    return;
+  }
+  sel.disabled = false;
   const fmt = (h, m) => {
     const ap = h >= 12 ? "PM" : "AM";
     const hh = h % 12 === 0 ? 12 : h % 12;
     return hh + ":" + String(m).padStart(2, "0") + " " + ap;
   };
-  sel.innerHTML = `<option value="">Entregar lo antes posible</option>`;
+  const slots = [];
   for (let h = 9; h <= 21; h++) {
     for (const m of [0, 30]) {
       if (h === 21 && m === 30) break;
       if (h * 60 + m < curMin) continue;
-      const opt = document.createElement("option");
-      const t = String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0");
-      opt.value = t;
-      opt.textContent = fmt(h, m);
-      sel.appendChild(opt);
+      slots.push({
+        t: String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0"),
+        label: fmt(h, m),
+      });
     }
   }
+  slots.shift();
+  sel.innerHTML = `<option value="">Entregar lo antes posible</option>`;
+  slots.forEach((s) => {
+    const opt = document.createElement("option");
+    opt.value = s.t;
+    opt.textContent = s.label;
+    sel.appendChild(opt);
+  });
 }
+
+el("checkout-time").addEventListener("change", () => {
+  const sel = el("checkout-time");
+  const v = sel.value;
+  if (!v) return;
+  const t = v.split(":").map(Number);
+  const h = t[0] + (t[1] || 0) / 60;
+  if (h < 9 || h > 21) {
+    sel.value = "";
+    const status = el("checkout-status");
+    status.className = "status-msg err";
+    status.textContent = "Los envíos se realizan de 9:00 AM a 9:00 PM.";
+  }
+});
 
 async function submitOrder(e) {
   e.preventDefault();
   const form = el("checkout-form");
   const status = el("checkout-status");
-  const hours = new Date().getHours();
-  if (hours >= 21) {
+  const hours = havanaNow().h;
+  if (hours >= 21 || hours < 6) {
     status.className = "status-msg err";
-    status.textContent = "Ya no se reciben pedidos después de las 9:00 PM.";
+    status.textContent = "Los envíos se realizan de 9:00 AM a 9:00 PM.";
     return;
   }
   const order = buildOrder(new FormData(form));
@@ -1175,7 +1256,14 @@ async function submitOrder(e) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(order),
     });
-    if (!res.ok) throw new Error("HTTP " + res.status);
+    if (!res.ok) {
+      let msg = "HTTP " + res.status;
+      try {
+        const j = await res.json();
+        if (j && j.error) msg = j.error;
+      } catch {}
+      throw new Error(msg);
+    }
     status.className = "status-msg ok";
     status.textContent = "✅ Pedido enviado. Te contactaremos pronto.";
     cart.clear();
@@ -1265,7 +1353,7 @@ function goToHomeGrid(id) {
   const key = String(id);
   const p = data.products.find((x) => String(x.id) === key);
   if (!p) return;
-  releaseMarker();
+  unlockBack();
   if (similarTimer) clearInterval(similarTimer);
   if (similarRecent) clearInterval(similarRecent);
   el("home-tabs").classList.remove("hidden");
@@ -1311,8 +1399,8 @@ document.querySelectorAll(".search-input").forEach((inp) =>
   })
 );
 
-el("business-hero-back").addEventListener("click", () => { closeBusiness(); releaseMarker(); });
-el("product-hero-back").addEventListener("click", () => { closeProduct(); releaseMarker(); });
+el("business-hero-back").addEventListener("click", () => handleInAppBack(closeBusiness));
+el("product-hero-back").addEventListener("click", () => handleInAppBack(closeProduct));
 el("cart-hero-back").addEventListener("click", () => showView("home"));
 el("profile-hero-back").addEventListener("click", () => showView("home"));
 el("back-to-top").addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
@@ -1320,38 +1408,56 @@ el("biz-back-to-top").addEventListener("click", () => window.scrollTo({ top: 0, 
 
 
 loadData();
+syncServerTime();
+setInterval(syncServerTime, 5 * 60 * 1000);
 updateCartUI();
 
 if ("scrollRestoration" in history) history.scrollRestoration = "manual";
 window.scrollTo(0, 0);
 
-/* Botón/gesto "atrás" del teléfono: actúa como el botón < en vez de salir de la página */
-let detailMarkerActive = false;
-function detailOpenState() {
+/* Back del sistema/botón: mientras haya una vista abierta, atrás la cierra
+   (re-armando el historial) y nunca saca de la página */
+let backActive = false;
+let ignoreNextBack = false;
+
+function anyDetailOpen() {
   return (
     !el("business-detail").classList.contains("hidden") ||
     !el("product-detail").classList.contains("hidden")
   );
 }
-function armDetailBack() {
-  if (detailMarkerActive) return;
-  history.pushState({ mm: "detail" }, "");
-  detailMarkerActive = true;
+function enterView() {
+  if (backActive) return;
+  history.pushState({ mm: 1 }, "");
+  backActive = true;
 }
-function releaseMarker() {
-  if (!detailMarkerActive) return;
-  detailMarkerActive = false;
+function unlockBack() {
+  if (!backActive) return;
+  backActive = false;
+  ignoreNextBack = true;
   history.back();
 }
-window.addEventListener("popstate", (e) => {
-  if (!detailMarkerActive) return;
-  detailMarkerActive = false;
-  if (!e.state || e.state.mm !== "detail") return;
+function handleInAppBack(closeFn) {
+  closeFn();
+  if (anyDetailOpen()) return;
+  unlockBack();
+}
+function closeTopBack() {
   if (!el("product-detail").classList.contains("hidden")) closeProduct();
   else if (!el("business-detail").classList.contains("hidden")) closeBusiness();
-  if (detailOpenState()) {
-    history.pushState({ mm: "detail" }, "");
-    detailMarkerActive = true;
+}
+window.addEventListener("popstate", (e) => {
+  if (ignoreNextBack) {
+    ignoreNextBack = false;
+    return;
+  }
+  if (!e.state || e.state.mm !== 1) return;
+  closeTopBack();
+  if (anyDetailOpen()) {
+    history.pushState({ mm: 1 }, "");
+    backActive = true;
+  } else {
+    backActive = false;
   }
 });
 
@@ -1497,7 +1603,7 @@ async function loadHistory() {
     const orders = {};
     data.forEach((v) => {
       const key = v.created_at;
-      if (!orders[key]) orders[key] = { fecha: v.fecha, hora: v.hora, items: [], total: v.total };
+      if (!orders[key]) orders[key] = { fecha: cubaDateStr(v.created_at) || v.fecha, hora: v.hora, items: [], total: v.total };
       orders[key].items.push(v);
     });
     box.innerHTML = Object.values(orders).map((o) => {
@@ -1505,7 +1611,7 @@ async function loadHistory() {
       const ship = o.total - sub;
       return `
       <div class="history-card">
-        <div class="history-date">${o.fecha} ${o.hora ? "a las " + o.hora : ""}</div>
+        <div class="history-date">${o.fecha} ${o.hora ? "a las " + fmt12h(o.hora) : ""}</div>
         <div class="history-items">${o.items.map((i) => `${i.cantidad}× ${i.producto} — ${currency.format(i.subtotal)}`).join("<br>")}</div>
         <div class="history-breakdown">
           <div class="cart-summary-row"><span>Subtotal</span><span>${currency.format(sub)}</span></div>
