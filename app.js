@@ -62,11 +62,8 @@ const currency = {
 
 let data = { categories: [], businesses: [], products: [] };
 let activeCategory = "Todos";
-let productFromBusiness = false;
-let detailScrollY = 0;
 let listScrollY = 0;
 let activeDetailSync = null;
-let detailReturn = null;
 const cart = new Map();
 const el = (id) => document.getElementById(id);
 
@@ -200,6 +197,7 @@ async function loadData() {
   renderFeatured();
   loadCart();
   updateCartUI();
+  handleRoute();
 }
 
 function updateStatuses() {
@@ -456,18 +454,7 @@ function openBusiness(business) {
   });
   listScrollY = window.scrollY;
   window.scrollTo(0, 0);
-  enterView();
-}
-
-function closeBusiness() {
-  el("home-tabs").classList.remove("hidden");
-  resetHomeHero();
-  const active = document.querySelector(".home-tab.active").dataset.tab;
-  el("tab-businesses").classList.toggle("hidden", active !== "businesses");
-  el("tab-products").classList.toggle("hidden", active !== "products");
-  el("business-detail").classList.add("hidden");
-  window.scrollTo(0, listScrollY);
-  setHeroCollapsed(listScrollY >= heroRef() * 0.7);
+  navigate("#/b/" + business.id);
 }
 
 function renderProductOptions(product, sel) {
@@ -536,9 +523,6 @@ function renderProductOptions(product, sel) {
 }
 
 function openProduct(product, presel) {
-  detailReturn = null;
-  productFromBusiness = !el("business-detail").classList.contains("hidden");
-  detailScrollY = window.scrollY;
   const biz = getBusiness(product.businessId);
   el("home-tabs").classList.add("hidden");
   el("tab-businesses").classList.add("hidden");
@@ -632,40 +616,18 @@ function openProduct(product, presel) {
   refreshDetail();
   renderSimilar(product);
   window.scrollTo(0, 0);
-  enterView();
-}
-
-function closeProduct() {
-  el("product-detail").classList.add("hidden");
-  if (detailReturn === "cart") {
-    detailReturn = null;
-    showView("cart");
-    return;
-  }
-  if (productFromBusiness) {
-    el("business-detail").classList.remove("hidden");
-    el("home-tabs").classList.add("hidden");
-    el("view-home").classList.add("in-business");
-    const homeHero = document.querySelector("#view-home .brand-hero");
-    homeHero.classList.add("always-mini");
-    homeHero.classList.remove("hero-collapsed");
-    heroCollapsed = false;
-    el("business-hero").classList.remove("hidden");
-    el("business-hero-back")?.classList.remove("hidden");
-    el("product-hero").classList.add("hidden");
-    el("product-hero-back")?.classList.add("hidden");
-    el("featured-section").classList.add("hidden");
-    el("similar-section")?.classList.add("hidden");
-    window.scrollTo(0, detailScrollY);
-    return;
-  }
-  el("home-tabs").classList.remove("hidden");
-  resetHomeHero();
-  const active = document.querySelector(".home-tab.active").dataset.tab;
-  el("tab-businesses").classList.toggle("hidden", active !== "businesses");
-  el("tab-products").classList.toggle("hidden", active !== "products");
-  window.scrollTo(0, detailScrollY);
-  setHeroCollapsed(detailScrollY >= heroRef() * 0.7);
+  const enc =
+    presel && product.groups
+      ? "/" +
+        encodeURIComponent(
+          JSON.stringify(
+            product.groups.map((g, gi) =>
+              (presel[gi] || []).map((oi) => g.options[oi].name)
+            )
+          )
+        )
+      : "";
+  navigate("#/p/" + product.id + enc);
 }
 
 function createProductCard(p) {
@@ -872,6 +834,11 @@ function bounceNav(v) {
 
 let currentView = "home";
 function showView(v) {
+  const target = v === "cart" ? "#/cart" : v === "profile" ? "#/profile" : "#/";
+  applyViewUi(v);
+  navigate(target);
+}
+function applyViewUi(v) {
   const wasHome = currentView === "home";
   const scrollRef = heroRef();
   currentView = v;
@@ -1034,7 +1001,6 @@ function openProductFromCart(key) {
     b.classList.toggle("active", b.dataset.view === "home")
   );
   openProduct(p, presel);
-  detailReturn = "cart";
 }
 
 function renderCart() {
@@ -1353,7 +1319,7 @@ function goToHomeGrid(id) {
   const key = String(id);
   const p = data.products.find((x) => String(x.id) === key);
   if (!p) return;
-  unlockBack();
+  navigate("#/");
   if (similarTimer) clearInterval(similarTimer);
   if (similarRecent) clearInterval(similarRecent);
   el("home-tabs").classList.remove("hidden");
@@ -1399,10 +1365,10 @@ document.querySelectorAll(".search-input").forEach((inp) =>
   })
 );
 
-el("business-hero-back").addEventListener("click", () => handleInAppBack(closeBusiness));
-el("product-hero-back").addEventListener("click", () => handleInAppBack(closeProduct));
-el("cart-hero-back").addEventListener("click", () => showView("home"));
-el("profile-hero-back").addEventListener("click", () => showView("home"));
+el("business-hero-back").addEventListener("click", () => history.back());
+el("product-hero-back").addEventListener("click", () => history.back());
+el("cart-hero-back").addEventListener("click", () => history.back());
+el("profile-hero-back").addEventListener("click", () => history.back());
 el("back-to-top").addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
 el("biz-back-to-top").addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
 
@@ -1415,50 +1381,60 @@ updateCartUI();
 if ("scrollRestoration" in history) history.scrollRestoration = "manual";
 window.scrollTo(0, 0);
 
-/* Back del sistema/botón: mientras haya una vista abierta, atrás la cierra
-   (re-armando el historial) y nunca saca de la página */
-let backActive = false;
-let ignoreNextBack = false;
-
-function anyDetailOpen() {
-  return (
-    !el("business-detail").classList.contains("hidden") ||
-    !el("product-detail").classList.contains("hidden")
-  );
+/* Navegación por historial real: cada vista tiene su propia entrada (#/…),
+   así el botón atrás del dispositivo funciona normal (hashchange es universal). */
+let suppressedHash = null;
+function routePath() {
+  const h = location.hash.replace(/^#\/?/, "");
+  const i = h.indexOf("/");
+  const kind = i === -1 ? h : h.slice(0, i);
+  const rest = i === -1 ? "" : h.slice(i + 1);
+  const j = rest.indexOf("/");
+  const a = j === -1 ? rest : rest.slice(0, j);
+  const b = j === -1 ? "" : rest.slice(j + 1);
+  return { kind, a, b };
 }
-function enterView() {
-  if (backActive) return;
-  history.pushState({ mm: 1 }, "");
-  backActive = true;
+function navigate(hash) {
+  if (location.hash === hash) return;
+  suppressedHash = hash;
+  location.hash = hash;
 }
-function unlockBack() {
-  if (!backActive) return;
-  backActive = false;
-  ignoreNextBack = true;
-  history.back();
+function selFromHash(p, enc) {
+  if (!enc || !p || !p.groups) return null;
+  try {
+    const names = JSON.parse(decodeURIComponent(enc));
+    return p.groups.map((g, gi) =>
+      (names[gi] || []).map((n) => g.options.findIndex((o) => o.name === n)).filter((i) => i !== -1)
+    );
+  } catch {
+    return null;
+  }
 }
-function handleInAppBack(closeFn) {
-  closeFn();
-  if (anyDetailOpen()) return;
-  unlockBack();
+function handleRoute() {
+  const { kind, a, b } = routePath();
+  if (kind === "b") {
+    const biz = getBusiness(a);
+    if (biz) {
+      openBusiness(biz);
+      return;
+    }
+  }
+  if (kind === "p") {
+    const p = getProduct(a);
+    if (p) {
+      openProduct(p, selFromHash(p, b));
+      return;
+    }
+  }
+  applyViewUi(kind === "cart" || kind === "profile" ? kind : "home");
 }
-function closeTopBack() {
-  if (!el("product-detail").classList.contains("hidden")) closeProduct();
-  else if (!el("business-detail").classList.contains("hidden")) closeBusiness();
-}
-window.addEventListener("popstate", (e) => {
-  if (ignoreNextBack) {
-    ignoreNextBack = false;
+window.addEventListener("hashchange", () => {
+  if (suppressedHash === location.hash) {
+    suppressedHash = null;
     return;
   }
-  if (!e.state || e.state.mm !== 1) return;
-  closeTopBack();
-  if (anyDetailOpen()) {
-    history.pushState({ mm: 1 }, "");
-    backActive = true;
-  } else {
-    backActive = false;
-  }
+  suppressedHash = null;
+  handleRoute();
 });
 
 let heroCollapsed = false;
